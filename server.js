@@ -316,6 +316,26 @@ app.get('/api/leaderboard/:grupoId', (req, res) => {
     });
 });
 
+// --- HISTORIAL DETALLADO DE PUNTOS POR LIGA ---
+app.get('/api/historial/:grupoId', (req, res) => {
+    const grupoId = req.params.grupoId;
+    const query = `
+        SELECT u.username, p.equipo_visitante, p.equipo_local, p.fecha_juego, 
+               pr.carreras_vis_pred, pr.carreras_loc_pred, 
+               p.carreras_visitante as real_vis, p.carreras_local as real_loc, 
+               pr.puntos_obtenidos, p.estado
+        FROM pronosticos pr
+        JOIN usuarios u ON pr.usuario_id = u.id
+        JOIN partidos p ON pr.partido_id = p.id
+        WHERE pr.grupo_id = ? AND p.estado = 'FINALIZADO'
+        ORDER BY p.fecha_juego DESC, u.username ASC
+    `;
+    db.all(query, [grupoId], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(rows);
+    });
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log('Servidor Quiniela LVBP en http://localhost:' + PORT);

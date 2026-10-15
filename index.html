@@ -63,6 +63,9 @@
             <button class="nav-btn" onclick="switchTab('leaderboard-tab')">
                 <i class="fa-solid fa-trophy"></i> Tabla de Posiciones
             </button>
+            <button class="nav-btn" onclick="switchTab('history-tab')">
+                <i class="fa-solid fa-clock-rotate-left"></i> Historial de Puntos
+            </button>
             <button class="nav-btn" onclick="switchTab('rules-tab')">
                 <i class="fa-solid fa-book-open"></i> Reglas de Puntuación
             </button>
@@ -119,7 +122,32 @@
                 </div>
             </div>
 
-            <!-- TAB 4: REGLAS -->
+            <!-- TAB 4: HISTORIAL DE PUNTOS -->
+            <div id="history-tab" class="tab-content">
+                <div class="section-header">
+                    <h2>Historial de Puntos por Partido</h2>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <select id="group-filter-history" onchange="loadHistory()"></select>
+                    </div>
+                </div>
+                <div class="table-container">
+                    <table class="leaderboard-table">
+                        <thead>
+                            <tr>
+                                <th>Jugador</th>
+                                <th>Partido</th>
+                                <th>Fecha</th>
+                                <th>Pronóstico</th>
+                                <th>Resultado Real</th>
+                                <th>Puntos</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- TAB 5: REGLAS -->
             <div id="rules-tab" class="tab-content">
                 <div class="section-header"><h2>Reglas de Puntuación</h2></div>
                 <div class="rules-container">

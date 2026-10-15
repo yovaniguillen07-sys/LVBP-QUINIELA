@@ -103,6 +103,7 @@ async function handleActualizarPerfil(e) {
         closeModal('profile-modal');
         alert('Perfil actualizado.');
         loadLeaderboard();
+        loadHistory();
     } else {
         alert(data.error || 'Error al actualizar.');
     }
@@ -180,6 +181,7 @@ async function handleAdminGuardarPuntos(e) {
         alert('Puntos modificados.');
         closeModal('admin-puntos-modal');
         loadLeaderboard();
+        loadHistory();
     }
 }
 
@@ -192,6 +194,7 @@ async function cargarGrupos() {
         populateGroupSelects();
         renderGames();
         loadLeaderboard();
+        loadHistory();
     }
 }
 
@@ -201,7 +204,6 @@ async function verificarEnlaceInvitacion() {
     if (!codigoJoin || !currentUser) return;
 
     let password = '';
-    // Intentar unirse directamente
     let res = await fetch(API_URL + '/grupos/unirse', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -223,7 +225,7 @@ async function verificarEnlaceInvitacion() {
 
     if (res.ok) {
         alert('¡Te has unido exitosamente a la liga: ' + data.nombre + '!');
-        window.history.replaceState({}, document.title, window.location.pathname); // Limpiar URL
+        window.history.replaceState({}, document.title, window.location.pathname);
         cargarGrupos();
     } else {
         if (password !== null) alert(data.error || 'No se pudo unir a la liga.');
@@ -280,7 +282,9 @@ function renderGroups() {
 function populateGroupSelects() {
     const selectFilter = document.getElementById('group-filter');
     const selectGame = document.getElementById('group-select-game');
-    [selectFilter, selectGame].forEach(select => {
+    const selectHistory = document.getElementById('group-filter-history');
+    
+    [selectFilter, selectGame, selectHistory].forEach(select => {
         if (!select) return;
         const valActual = select.value;
         select.innerHTML = '';
@@ -294,6 +298,7 @@ function populateGroupSelects() {
         if (valActual) select.value = valActual;
     });
     loadLeaderboard();
+    loadHistory();
 }
 
 function abrirModalCrearGrupo() {
@@ -435,6 +440,7 @@ async function resetearLiga(grupoId) {
         alert('Liga reseteada.');
         renderGames();
         loadLeaderboard();
+        loadHistory();
     }
 }
 
@@ -603,6 +609,7 @@ async function guardarPronostico(partidoId, grupoId) {
         alert('Pronóstico guardado.');
         renderGames();
         loadLeaderboard();
+        loadHistory();
     } else {
         const d = await res.json();
         alert(d.error || 'Error.');
@@ -633,6 +640,7 @@ async function handleGuardarResultado(e) {
         closeModal('result-modal');
         renderGames();
         loadLeaderboard();
+        loadHistory();
     }
 }
 
@@ -652,6 +660,40 @@ async function loadLeaderboard() {
         const listado = await res.json();
         listado.forEach((m, index) => {
             tbody.innerHTML += `<tr><td>#${index + 1}</td><td><strong>${m.username}</strong></td><td><span class="badge">${m.rol}</span></td><td><strong>${m.puntos_acumulados} pts</strong></td></tr>`;
+        });
+    }
+}
+
+async function loadHistory() {
+    const selectedGroupId = parseInt(document.getElementById('group-filter-history')?.value);
+    const tbody = document.getElementById('history-body');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    if (!selectedGroupId) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">Selecciona una liga para ver el historial.</td></tr>`;
+        return;
+    }
+
+    const res = await fetch(API_URL + '/historial/' + selectedGroupId);
+    if (res.ok) {
+        const historial = await res.json();
+        if (historial.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">No hay partidos finalizados con puntos registrados todavía.</td></tr>`;
+            return;
+        }
+        historial.forEach(h => {
+            let badgeColor = h.puntos_obtenidos === 6 ? 'var(--success)' : (h.puntos_obtenidos >= 2 ? 'var(--accent)' : 'var(--border)');
+            tbody.innerHTML += `
+                <tr>
+                    <td><strong>${h.username}</strong></td>
+                    <td>${h.equipo_visitante} vs ${h.equipo_local}</td>
+                    <td>${h.fecha_juego}</td>
+                    <td><code style="font-size:0.95rem;">${h.carreras_vis_pred} - ${h.carreras_loc_pred}</code></td>
+                    <td><code style="font-size:0.95rem;">${h.real_vis} - ${h.real_loc}</code></td>
+                    <td><span class="badge" style="background:${badgeColor}; color:#000; font-weight:bold;">+${h.puntos_obtenidos} pts</span></td>
+                </tr>
+            `;
         });
     }
 }
