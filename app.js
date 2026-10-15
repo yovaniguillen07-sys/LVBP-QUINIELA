@@ -1,5 +1,7 @@
 let currentUser = JSON.parse(localStorage.getItem('penka_current_user')) || null;
-const API_URL = 'http://localhost:3000/api';
+const API_URL = window.location.hostname === 'localhost' 
+    ? 'http://localhost:3000/api' 
+    : window.location.origin + '/api';
 let isRegisterMode = false;
 let gruposListado = [];
 
@@ -215,19 +217,16 @@ function renderGroups() {
                 <button class="btn btn-secondary" onclick="abrirModalMiembros(${g.id}, '${g.nombre}')"><i class="fa-solid fa-users-gear"></i> Miembros</button>
                 <button class="btn btn-secondary" onclick="openShareModal(${g.id})"><i class="fa-solid fa-share-nodes"></i> QR</button>`;
 
-        // Si es Creador y está en configuración
         if (esCreador && !enProgreso) {
             html += `<button class="btn btn-primary" onclick="comenzarLiga(${g.id})">Comenzar Liga</button>
                      <button class="btn btn-secondary" onclick="abrirModalEditarGrupo(${g.id}, '${g.nombre}', '${g.tipo}', '${g.password || ''}')"><i class="fa-solid fa-pen"></i></button>
                      <button class="btn btn-danger" onclick="eliminarGrupo(${g.id})"><i class="fa-solid fa-trash"></i></button>`;
         }
 
-        // Si es Creador y YA está EN_PROGRESO (solo puede editar nombre/contraseña)
         if (esCreador && enProgreso && !esAdmin) {
             html += `<button class="btn btn-secondary" onclick="abrirModalEditarGrupo(${g.id}, '${g.nombre}', '${g.tipo}', '${g.password || ''}')"><i class="fa-solid fa-pen"></i></button>`;
         }
 
-        // Si es ADMIN (ID 1), tiene privilegios completos incluso en progreso (Editar, Resetear, Eliminar)
         if (esAdmin) {
             if (enProgreso) {
                 html += `<button class="btn btn-secondary" onclick="abrirModalEditarGrupo(${g.id}, '${g.nombre}', '${g.tipo}', '${g.password || ''}')"><i class="fa-solid fa-pen"></i></button>`;
