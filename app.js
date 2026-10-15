@@ -472,7 +472,14 @@ async function cambiarEstadoPartido(partidoId, nuevoEstado) {
 
 async function renderGames() {
     if (!currentUser) return;
-    const selectedGroupId = parseInt(document.getElementById('group-select-game')?.value);
+    const selectGame = document.getElementById('group-select-game');
+    
+    // Selecciona automáticamente la primera liga si no hay ninguna seleccionada
+    if (selectGame && !selectGame.value && selectGame.options.length > 0 && selectGame.options[0].value) {
+        selectGame.selectedIndex = 0;
+    }
+
+    const selectedGroupId = parseInt(selectGame?.value);
     const container = document.getElementById('games-container');
     if (!container) return;
 
