@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiniela LVBP - Estilo Penka</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body>
+
+    <!-- Overlay de Autenticación -->
+    <div id="auth-overlay" class="modal" style="display: flex;">
+        <div class="modal-content">
+            <h3 id="auth-title">Iniciar Sesión en Quiniela</h3>
+            <form id="auth-form" onsubmit="handleAuth(event)" autocomplete="off">
+                <div class="form-group" id="group-email" style="display: none;">
+                    <label>Correo Electrónico</label>
+                    <input type="email" id="auth-email" placeholder="correo@ejemplo.com" autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label>Nombre de Usuario</label>
+                    <input type="text" id="auth-user" required placeholder="Tu usuario" autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label>Contraseña</label>
+                    <input type="password" id="auth-pass" required placeholder="Tu contraseña" autocomplete="new-password">
+                </div>
+                <button type="submit" id="auth-btn" class="btn btn-primary btn-block">Ingresar</button>
+                <p class="text-center" style="margin-top: 1rem; font-size: 0.9rem;">
+                    <span id="auth-switch-text">¿No tienes cuenta?</span> 
+                    <a href="#" onclick="toggleAuthMode()" style="color: var(--accent); text-decoration: none;">Regístrate aquí</a>
+                </p>
+            </form>
+        </div>
+    </div>
+
+    <!-- Header Navigation -->
+    <header class="navbar">
+        <div class="logo">
+            <i class="fa-solid fa-baseball-bat-ball"></i>
+            <span>Quiniela <strong>LVBP</strong></span>
+        </div>
+        <div class="user-profile">
+            <i class="fa-solid fa-user-circle"></i>
+            <span id="user-display-name">Invitado</span>
+            <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem; margin-left: 0.5rem;" onclick="abrirModalPerfil()">Perfil</button>
+            <button id="btn-admin-panel" class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem; margin-left: 0.5rem; display: none; background: var(--accent); color: #000;" onclick="abrirModalAdminUsuarios()">Panel Admin</button>
+            <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem; margin-left: 0.5rem;" onclick="cerrarSesion()">Salir</button>
+        </div>
+    </header>
+
+    <!-- Main App Container -->
+    <main class="container">
+        <aside class="sidebar">
+            <button class="nav-btn active" onclick="switchTab('groups-tab')">
+                <i class="fa-solid fa-users"></i> Mis Grupos / Ligas
+            </button>
+            <button class="nav-btn" onclick="switchTab('games-tab')">
+                <i class="fa-solid fa-calendar-days"></i> Partidos & Pronósticos
+            </button>
+            <button class="nav-btn" onclick="switchTab('leaderboard-tab')">
+                <i class="fa-solid fa-trophy"></i> Tabla de Posiciones
+            </button>
+            <button class="nav-btn" onclick="switchTab('rules-tab')">
+                <i class="fa-solid fa-book-open"></i> Reglas de Puntuación
+            </button>
+        </aside>
+
+        <section class="content">
+            <!-- TAB 1: GRUPOS / LIGAS -->
+            <div id="groups-tab" class="tab-content active">
+                <div class="section-header">
+                    <h2>Gestión de Ligas (Penkas)</h2>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button class="btn btn-secondary" onclick="abrirModalUnirseLiga()"><i class="fa-solid fa-right-to-bracket"></i> Unirse a Liga</button>
+                        <button class="btn btn-primary" onclick="abrirModalCrearGrupo()"><i class="fa-solid fa-plus"></i> Crear Liga</button>
+                    </div>
+                </div>
+                <div class="groups-grid" id="groups-list"></div>
+            </div>
+
+            <!-- TAB 2: PARTIDOS & PRONÓSTICOS -->
+            <div id="games-tab" class="tab-content">
+                <div class="section-header">
+                    <h2>Jornada LVBP & Pronósticos</h2>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <select id="group-select-game" onchange="renderGames()"></select>
+                        <button id="btn-nuevo-partido" class="btn btn-primary" style="display: none;" onclick="abrirModalCrearPartido()">
+                            <i class="fa-solid fa-plus"></i> Añadir Partido
+                        </button>
+                    </div>
+                </div>
+                <div class="games-list" id="games-container"></div>
+            </div>
+
+            <!-- TAB 3: LEADERBOARD -->
+            <div id="leaderboard-tab" class="tab-content">
+                <div class="section-header">
+                    <h2>Tabla de Posiciones</h2>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <select id="group-filter" onchange="loadLeaderboard()"></select>
+                        <button id="btn-admin-puntos" class="btn btn-secondary" style="display: none; background: var(--accent); color: #000;" onclick="abrirModalAdminPuntos()">Modificar Puntos</button>
+                    </div>
+                </div>
+                <div class="table-container">
+                    <table class="leaderboard-table">
+                        <thead>
+                            <tr>
+                                <th>Posición</th>
+                                <th>Usuario</th>
+                                <th>Rol</th>
+                                <th>Puntos Totales</th>
+                            </tr>
+                        </thead>
+                        <tbody id="leaderboard-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- TAB 4: REGLAS -->
+            <div id="rules-tab" class="tab-content">
+                <div class="section-header"><h2>Reglas de Puntuación</h2></div>
+                <div class="rules-container">
+                    <div class="rule-card">
+                        <div class="rule-header"><span class="rule-points">6 PTS</span><h3>Acierto Directo / Pleno</h3></div>
+                        <p>Aciertas el equipo ganador y el marcador exacto (Regla exclusiva).</p>
+                    </div>
+                    <div class="rule-card">
+                        <div class="rule-header"><span class="rule-points">3 PTS</span><h3>Acierto de Ganador</h3></div>
+                        <p>Aciertas cuál equipo ganó el partido sin atinar el marcador exacto.</p>
+                    </div>
+                    <div class="rule-card">
+                        <div class="rule-header"><span class="rule-points">2 PTS</span><h3>Acierto de Carreras Totales</h3></div>
+                        <p>La suma total de carreras coincide con la real sin acertar el ganador.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Modal: Unirse a Liga -->
+    <div id="join-group-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeModal('join-group-modal')">&times;</span>
+            <h3>Unirse a una Liga Existente</h3>
+            <form onsubmit="handleUnirseLiga(event)">
+                <div class="form-group"><label>Código de la Liga</label><input type="text" id="join-codigo" required placeholder="Ej. LVBP-XXXXX"></div>
+                <div class="form-group" id="join-pass-group" style="display: none;"><label>Contraseña de la Liga</label><input type="password" id="join-password" placeholder="Contraseña"></div>
+                <button type="submit" class="btn btn-primary btn-block">Unirme a la Liga</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Ver Miembros de la Liga -->
+    <div id="members-modal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <span class="close-btn" onclick="closeModal('members-modal')">&times;</span>
+            <h3 id="members-modal-title">Miembros de la Liga</h3>
+            <div class="table-container" style="max-height: 250px; overflow-y: auto; margin-top: 1rem;">
+                <table class="leaderboard-table">
+                    <thead><tr><th>Usuario</th><th>Correo</th><th>Acción</th></tr></thead>
+                    <tbody id="members-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Panel de Admin de Usuarios -->
+    <div id="admin-users-modal" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <span class="close-btn" onclick="closeModal('admin-users-modal')">&times;</span>
+            <h3>Gestión General de Usuarios</h3>
+            <div style="margin: 1rem 0;">
+                <h4>Crear Nuevo Usuario</h4>
+                <form onsubmit="handleAdminCrearUsuario(event)" style="display: flex; gap: 0.5rem; margin-top: 0.5rem;" autocomplete="off">
+                    <input type="text" id="adm-user" required placeholder="Usuario" style="flex:1; padding:0.5rem; background:var(--bg-color); border:1px solid var(--border); color:var(--text); border-radius:4px;" autocomplete="off">
+                    <input type="email" id="adm-email" required placeholder="Correo" style="flex:1; padding:0.5rem; background:var(--bg-color); border:1px solid var(--border); color:var(--text); border-radius:4px;" autocomplete="off">
+                    <input type="password" id="adm-pass" required placeholder="Clave" style="flex:1; padding:0.5rem; background:var(--bg-color); border:1px solid var(--border); color:var(--text); border-radius:4px;" autocomplete="new-password">
+                    <button type="submit" class="btn btn-primary">Crear</button>
+                </form>
+            </div>
+            <hr style="border-color: var(--border); margin: 1rem 0;">
+            <h4>Usuarios Registrados y Credenciales</h4>
+            <div class="table-container" style="max-height: 250px; overflow-y: auto; margin-top: 0.5rem;">
+                <table class="leaderboard-table">
+                    <thead><tr><th>Usuario</th><th>Email</th><th>Contraseña</th><th>Acción</th></tr></thead>
+                    <tbody id="admin-users-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Modificar Puntos Manualmente (Admin) -->
+    <div id="admin-puntos-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeModal('admin-puntos-modal')">&times;</span>
+            <h3>Modificar Puntos de Usuario</h3>
+            <form onsubmit="handleAdminGuardarPuntos(event)">
+                <div class="form-group"><label>Seleccionar Usuario</label><select id="adm-puntos-user" required style="padding:0.5rem; background:var(--bg-color); border:1px solid var(--border); color:var(--text); border-radius:6px;"></select></div>
+                <div class="form-group"><label>Nuevos Puntos Totales</label><input type="number" id="adm-puntos-val" required min="0"></div>
+                <button type="submit" class="btn btn-primary btn-block">Actualizar Puntos</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Editar Perfil -->
+    <div id="profile-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeModal('profile-modal')">&times;</span>
+            <h3>Editar Mi Perfil</h3>
+            <form onsubmit="handleActualizarPerfil(event)" autocomplete="off">
+                <div class="form-group"><label>Nuevo Nombre (Alias)</label><input type="text" id="edit-username" required placeholder="Tu nuevo alias" autocomplete="off"></div>
+                <div class="form-group"><label>Nueva Contraseña</label><input type="password" id="edit-password" required placeholder="Nueva contraseña" autocomplete="new-password"></div>
+                <button type="submit" class="btn btn-primary btn-block">Guardar Cambios</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Crear / Editar Liga -->
+    <div id="create-group-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeModal('create-group-modal')">&times;</span>
+            <h3 id="group-modal-title">Crear Nueva Penka LVBP</h3>
+            <form onsubmit="handleGuardarGrupo(event)">
+                <input type="hidden" id="edit-group-id">
+                <div class="form-group"><label>Nombre del Grupo / Liga</label><input type="text" id="group-name" required placeholder="Nueva Liga LVBP"></div>
+                <div class="form-group">
+                    <label>Tipo de Liga</label>
+                    <select id="group-type" onchange="toggleGroupPassword()" style="padding:0.75rem; background:var(--bg-color); border:1px solid var(--border); color:var(--text); border-radius:6px;">
+                        <option value="PUBLICA">Pública</option>
+                        <option value="PRIVADA">Privada (Con contraseña)</option>
+                    </select>
+                </div>
+                <div class="form-group" id="group-pass-container" style="display: none;">
+                    <label>Contraseña de Acceso</label>
+                    <input type="password" id="group-password" placeholder="Contraseña de la liga">
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">Guardar Liga</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Crear / Editar Partido -->
+    <div id="create-game-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeModal('create-game-modal')">&times;</span>
+            <h3 id="game-modal-title">Añadir Partido Manualmente</h3>
+            <form onsubmit="handleGuardarPartido(event)">
+                <input type="hidden" id="edit-game-id">
+                <div class="form-group"><label>Visitante</label><input type="text" id="new-vis" required placeholder="Ej. Leones"></div>
+                <div class="form-group"><label>Local</label><input type="text" id="new-loc" required placeholder="Ej. Águilas"></div>
+                <div class="form-group"><label>Fecha del Partido</label><input type="date" id="new-fecha" required style="padding:0.75rem; background:var(--bg-color); border:1px solid var(--border); color:var(--text); border-radius:6px; width:100%;"></div>
+                <div class="form-group">
+                    <label>Hora del Partido</label>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <input type="time" id="new-hora-val" required style="flex:1; padding:0.75rem; background:var(--bg-color); border:1px solid var(--border); color:var(--text); border-radius:6px;">
+                        <select id="new-hora-ampm" style="padding:0.75rem; background:var(--bg-color); border:1px solid var(--border); color:var(--text); border-radius:6px;">
+                            <option value="PM">PM</option>
+                            <option value="AM">AM</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group"><label>Estadio</label><input type="text" id="new-estadio" required placeholder="Ej. Estadio Monumental"></div>
+                <button type="submit" class="btn btn-primary btn-block">Guardar Partido</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Registrar Resultado Final (Admin) -->
+    <div id="result-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeModal('result-modal')">&times;</span>
+            <h3>Registrar Resultado Final</h3>
+            <p id="result-match-title" class="subtitle" style="margin-bottom: 1rem;"></p>
+            <form onsubmit="handleGuardarResultado(event)">
+                <input type="hidden" id="result-match-id">
+                <div class="form-group"><label id="label-vis-res">Carreras Visitante</label><input type="number" id="res-vis" required min="0" placeholder="0"></div>
+                <div class="form-group"><label id="label-loc-res">Carreras Local</label><input type="number" id="res-loc" required min="0" placeholder="0"></div>
+                <button type="submit" class="btn btn-primary btn-block">Finalizar y Calcular Puntos</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="share-modal" class="modal">
+        <div class="modal-content text-center">
+            <span class="close-btn" onclick="closeModal('share-modal')">&times;</span>
+            <h3>Invitar Miembros</h3>
+            <p id="share-group-name" class="subtitle"></p>
+            <div id="qrcode" class="qr-container"></div>
+            <div class="invite-link-box">
+                <input type="text" id="share-url-input" readonly>
+                <button class="btn btn-secondary" onclick="copyInviteLink()"><i class="fa-solid fa-copy"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
