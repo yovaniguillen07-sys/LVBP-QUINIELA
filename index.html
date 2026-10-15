@@ -153,7 +153,7 @@
                 <div class="rules-container">
                     <div class="rule-card">
                         <div class="rule-header"><span class="rule-points">6 PTS</span><h3>Acierto Directo / Pleno</h3></div>
-                        <p>Aciertas el equipo ganador y el marcador exacto (Regla exclusiva).</p>
+                        <p>Aciertas el equipo ganador y el marcador exacto.</p>
                     </div>
                     <div class="rule-card">
                         <div class="rule-header"><span class="rule-points">3 PTS</span><h3>Acierto de Ganador</h3></div>
@@ -168,7 +168,7 @@
         </section>
     </main>
 
-    <!-- Modal: Unirse a Liga -->
+    <!-- Modales -->
     <div id="join-group-modal" class="modal">
         <div class="modal-content">
             <span class="close-btn" onclick="closeModal('join-group-modal')">&times;</span>
@@ -181,7 +181,6 @@
         </div>
     </div>
 
-    <!-- Modal: Ver Miembros de la Liga -->
     <div id="members-modal" class="modal">
         <div class="modal-content" style="max-width: 500px;">
             <span class="close-btn" onclick="closeModal('members-modal')">&times;</span>
@@ -195,22 +194,21 @@
         </div>
     </div>
 
-    <!-- Modal: Panel de Admin de Usuarios -->
     <div id="admin-users-modal" class="modal">
         <div class="modal-content" style="max-width: 600px;">
             <span class="close-btn" onclick="closeModal('admin-users-modal')">&times;</span>
             <h3>Gestión General de Usuarios</h3>
             <div style="margin: 1rem 0;">
                 <h4>Crear Nuevo Usuario</h4>
-                <form onsubmit="handleAdminCrearUsuario(event)" style="display: flex; gap: 0.5rem; margin-top: 0.5rem;" autocomplete="off">
-                    <input type="text" id="adm-user" required placeholder="Usuario" style="flex:1; padding:0.5rem; background:var(--bg-color); border:1px solid var(--border); color:var(--text); border-radius:4px;" autocomplete="off">
-                    <input type="email" id="adm-email" required placeholder="Correo" style="flex:1; padding:0.5rem; background:var(--bg-color); border:1px solid var(--border); color:var(--text); border-radius:4px;" autocomplete="off">
-                    <input type="password" id="adm-pass" required placeholder="Clave" style="flex:1; padding:0.5rem; background:var(--bg-color); border:1px solid var(--border); color:var(--text); border-radius:4px;" autocomplete="new-password">
+                <form onsubmit="handleAdminCrearUsuario(event)" style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+                    <input type="text" id="adm-user" required placeholder="Usuario" style="flex:1; padding:0.5rem; background:var(--bg-color); border:1px solid var(--border); color:var(--text); border-radius:4px;">
+                    <input type="email" id="adm-email" required placeholder="Correo" style="flex:1; padding:0.5rem; background:var(--bg-color); border:1px solid var(--border); color:var(--text); border-radius:4px;">
+                    <input type="password" id="adm-pass" required placeholder="Clave" style="flex:1; padding:0.5rem; background:var(--bg-color); border:1px solid var(--border); color:var(--text); border-radius:4px;">
                     <button type="submit" class="btn btn-primary">Crear</button>
                 </form>
             </div>
             <hr style="border-color: var(--border); margin: 1rem 0;">
-            <h4>Usuarios Registrados y Credenciales</h4>
+            <h4>Usuarios Registrados</h4>
             <div class="table-container" style="max-height: 250px; overflow-y: auto; margin-top: 0.5rem;">
                 <table class="leaderboard-table">
                     <thead><tr><th>Usuario</th><th>Email</th><th>Contraseña</th><th>Acción</th></tr></thead>
@@ -220,7 +218,6 @@
         </div>
     </div>
 
-    <!-- Modal: Modificar Puntos Manualmente (Admin) -->
     <div id="admin-puntos-modal" class="modal">
         <div class="modal-content">
             <span class="close-btn" onclick="closeModal('admin-puntos-modal')">&times;</span>
@@ -233,20 +230,18 @@
         </div>
     </div>
 
-    <!-- Modal: Editar Perfil -->
     <div id="profile-modal" class="modal">
         <div class="modal-content">
             <span class="close-btn" onclick="closeModal('profile-modal')">&times;</span>
             <h3>Editar Mi Perfil</h3>
-            <form onsubmit="handleActualizarPerfil(event)" autocomplete="off">
-                <div class="form-group"><label>Nuevo Nombre (Alias)</label><input type="text" id="edit-username" required placeholder="Tu nuevo alias" autocomplete="off"></div>
-                <div class="form-group"><label>Nueva Contraseña</label><input type="password" id="edit-password" required placeholder="Nueva contraseña" autocomplete="new-password"></div>
+            <form onsubmit="handleActualizarPerfil(event)">
+                <div class="form-group"><label>Nuevo Nombre (Alias)</label><input type="text" id="edit-username" required placeholder="Tu nuevo alias"></div>
+                <div class="form-group"><label>Nueva Contraseña</label><input type="password" id="edit-password" required placeholder="Nueva contraseña"></div>
                 <button type="submit" class="btn btn-primary btn-block">Guardar Cambios</button>
             </form>
         </div>
     </div>
 
-    <!-- Modal: Crear / Editar Liga -->
     <div id="create-group-modal" class="modal">
         <div class="modal-content">
             <span class="close-btn" onclick="closeModal('create-group-modal')">&times;</span>
@@ -270,7 +265,6 @@
         </div>
     </div>
 
-    <!-- Modal: Crear / Editar Partido -->
     <div id="create-game-modal" class="modal">
         <div class="modal-content">
             <span class="close-btn" onclick="closeModal('create-game-modal')">&times;</span>
@@ -296,7 +290,6 @@
         </div>
     </div>
 
-    <!-- Modal: Registrar Resultado Final (Admin) -->
     <div id="result-modal" class="modal">
         <div class="modal-content">
             <span class="close-btn" onclick="closeModal('result-modal')">&times;</span>

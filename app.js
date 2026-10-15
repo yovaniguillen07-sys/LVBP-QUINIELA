@@ -109,7 +109,6 @@ async function handleActualizarPerfil(e) {
     }
 }
 
-// --- ADMIN USUARIOS ---
 async function abrirModalAdminUsuarios() {
     openModal('admin-users-modal');
     const res = await fetch(API_URL + '/admin/usuarios');
@@ -185,7 +184,6 @@ async function handleAdminGuardarPuntos(e) {
     }
 }
 
-// --- GESTIÓN DE GRUPOS / LIGAS ---
 async function cargarGrupos() {
     const res = await fetch(API_URL + '/grupos');
     if (res.ok) {
@@ -444,7 +442,6 @@ async function resetearLiga(grupoId) {
     }
 }
 
-// --- PARTIDOS ---
 function abrirModalCrearPartido() {
     document.getElementById('game-modal-title').textContent = 'Añadir Partido Manualmente';
     document.getElementById('edit-game-id').value = '';
