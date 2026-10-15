@@ -9,8 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
     checkAuthUI();
     if (currentUser) {
         cargarGrupos();
-        renderGames();
-        loadLeaderboard();
+        verificarEnlaceInvitacion();
     }
 });
 
@@ -64,8 +63,7 @@ async function handleAuth(e) {
             localStorage.setItem('penka_current_user', JSON.stringify(currentUser));
             checkAuthUI();
             cargarGrupos();
-            renderGames();
-            loadLeaderboard();
+            verificarEnlaceInvitacion();
         } else {
             alert(data.error || 'Error de autenticación.');
         }
@@ -192,6 +190,43 @@ async function cargarGrupos() {
         gruposListado = await res.json();
         renderGroups();
         populateGroupSelects();
+        renderGames();
+        loadLeaderboard();
+    }
+}
+
+async function verificarEnlaceInvitacion() {
+    const params = new URLSearchParams(window.location.search);
+    const codigoJoin = params.get('join');
+    if (!codigoJoin || !currentUser) return;
+
+    let password = '';
+    // Intentar unirse directamente
+    let res = await fetch(API_URL + '/grupos/unirse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ codigo_acceso: codigoJoin, password: '', usuario_id: currentUser.id })
+    });
+    let data = await res.json();
+
+    if (!res.ok && data.error && data.error.includes('Contraseña')) {
+        password = prompt('Esta liga es privada. Ingresa la contraseña:') || '';
+        if (password) {
+            res = await fetch(API_URL + '/grupos/unirse', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ codigo_acceso: codigoJoin, password, usuario_id: currentUser.id })
+            });
+            data = await res.json();
+        }
+    }
+
+    if (res.ok) {
+        alert('¡Te has unido exitosamente a la liga: ' + data.nombre + '!');
+        window.history.replaceState({}, document.title, window.location.pathname); // Limpiar URL
+        cargarGrupos();
+    } else {
+        if (password !== null) alert(data.error || 'No se pudo unir a la liga.');
     }
 }
 
@@ -209,11 +244,13 @@ function renderGroups() {
         const enProgreso = g.estado === 'EN_PROGRESO';
         const esAdmin = (currentUser.id === 1);
         const esCreador = (currentUser.id === g.creador_id);
+        const linkInvitacion = window.location.origin + window.location.pathname + '?join=' + g.codigo_acceso;
 
         let html = `<div class="group-card">
             <div class="group-card-header"><h3>${g.nombre}</h3><span class="badge" style="background:${enProgreso ? 'var(--success)' : 'var(--border)'}; color:${enProgreso ? '#fff' : 'var(--accent)'}">${g.estado}</span></div>
             <p style="color: var(--text-muted); font-size: 0.85rem;">Tipo: <strong>${g.tipo}</strong> | Código: <strong>${g.codigo_acceso}</strong></p>
             <div class="group-card-actions">
+                <a href="${linkInvitacion}" class="btn btn-primary" style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center; gap:0.4rem;" target="_blank"><i class="fa-solid fa-user-plus"></i> Unirme Directo</a>
                 <button class="btn btn-secondary" onclick="abrirModalMiembros(${g.id}, '${g.nombre}')"><i class="fa-solid fa-users-gear"></i> Miembros</button>
                 <button class="btn btn-secondary" onclick="openShareModal(${g.id})"><i class="fa-solid fa-share-nodes"></i> QR</button>`;
 
@@ -474,7 +511,6 @@ async function renderGames() {
     if (!currentUser) return;
     const selectGame = document.getElementById('group-select-game');
     
-    // Selecciona automáticamente la primera liga si no hay ninguna seleccionada
     if (selectGame && !selectGame.value && selectGame.options.length > 0 && selectGame.options[0].value) {
         selectGame.selectedIndex = 0;
     }
