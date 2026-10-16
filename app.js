@@ -717,7 +717,13 @@ async function loadLeaderboard() {
 
     const res = await fetch(API_URL + '/leaderboard/' + selectedGroupId);
     if (res.ok) {
-        const listado = await res.json();
+        let listado = await res.json();
+        
+        // FILTRADO DE SEGURIDAD: Asegura que cada usuario aparezca una sola vez por su ID
+        listado = listado.filter((m, index, self) => 
+            index === self.findIndex((t) => t.usuario_id === m.usuario_id)
+        );
+
         listado.forEach((m, index) => {
             let trofeoIcon = '';
             if (index === 0) trofeoIcon = ' <i class="fa-solid fa-trophy" style="color:var(--gold);" title="Campeón (Oro)"></i>';
