@@ -403,33 +403,23 @@ app.post('/api/admin/puntos', async (req, res) => {
     }
 });
 
-// Endpoint blindado con filtro en Node.js para eliminar duplicados de forma absoluta
+// Endpoint corregido con GROUP BY estricto en la base de datos
 app.get('/api/leaderboard/:grupoId', async (req, res) => {
     const grupoId = req.params.grupoId;
     const query = `
         SELECT u.id as usuario_id, u.username, 
-               COALESCE(mg.puntos_acumulados, 0) as puntos_acumulados,
-               CASE WHEN g.creador_id = u.id THEN 'CREADOR' ELSE 'MIEMBRO' END as rol 
+               SUM(mg.puntos_acumulados) as puntos_acumulados,
+               CASE WHEN MAX(g.creador_id) = u.id THEN 'CREADOR' ELSE 'MIEMBRO' END as rol 
         FROM miembros_grupo mg 
         JOIN usuarios u ON mg.usuario_id = u.id 
         JOIN grupos g ON g.id = mg.grupo_id
         WHERE mg.grupo_id = $1 
+        GROUP BY u.id, u.username
         ORDER BY puntos_acumulados DESC, u.username ASC;
     `;
     try {
         const result = await pool.query(query, [grupoId]);
-        
-        // Filtro de seguridad estricto en el servidor
-        const unicos = [];
-        const idsVistos = new Set();
-        for (const row of result.rows) {
-            if (!idsVistos.has(row.usuario_id)) {
-                idsVistos.add(row.usuario_id);
-                unicos.push(row);
-            }
-        }
-
-        res.json(unicos);
+        res.json(result.rows);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
