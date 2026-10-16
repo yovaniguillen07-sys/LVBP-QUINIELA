@@ -196,6 +196,13 @@ async function cargarGrupos() {
         renderGroups();
         populateGroupSelects();
         renderGames();
+        
+        // Selección automática de la primera liga por defecto
+        const selectFilter = document.getElementById('group-filter');
+        if (selectFilter && selectFilter.options.length > 0 && !selectFilter.value) {
+            selectFilter.selectedIndex = 0;
+        }
+
         loadLeaderboard();
         loadHistory();
         loadChampionships();
