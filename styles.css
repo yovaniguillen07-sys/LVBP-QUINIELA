@@ -331,6 +331,20 @@ body {
     overflow-y: auto;
 }
 
+/* Ajuste específico para la ventana modal de Ver Pronósticos */
+#ver-pronosticos-modal .modal-content {
+    max-width: 580px;
+    width: 95%;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+}
+
+#ver-pronosticos-modal .table-container {
+    max-height: 50vh !important;
+    overflow-y: auto;
+}
+
 #auth-overlay {
     z-index: 3000;
 }
@@ -405,5 +419,14 @@ body {
     .game-card {
         flex-direction: column;
         align-items: flex-start;
+    }
+
+    /* Adaptabilidad extra para móviles en la ventana de pronósticos */
+    #ver-pronosticos-modal .modal-content {
+        padding: 1rem;
+        max-height: 90vh;
+    }
+    #ver-pronosticos-modal .table-container {
+        max-height: 60vh !important;
     }
 }
