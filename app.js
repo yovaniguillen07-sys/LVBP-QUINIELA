@@ -213,7 +213,6 @@ async function verificarEnlaceInvitacion() {
     const codigoJoin = params.get('join');
     if (!codigoJoin || !currentUser) return;
 
-    // Limpiamos la URL de inmediato para evitar bucles si cancela o recarga
     window.history.replaceState({}, document.title, window.location.pathname);
 
     let password = '';
@@ -635,8 +634,13 @@ async function renderGames() {
 
         if (partido.estado === 'PENDIENTE') {
             html += `<button class="${btnClase}" id="btn-pred-${partido.id}" onclick="guardarPronostico(${partido.id}, ${selectedGroupId}, ${tienePronostico})">${btnTexto}</button>`;
-        } else if (partido.estado === 'FINALIZADO') {
-            html += `<span class="points-earned-badge">+${pred.puntos_obtenidos !== undefined ? pred.puntos_obtenidos : 0} pts obtenidos</span>`;
+        } else {
+            // Botón para ver pronósticos de todos los usuarios una vez cerrado o finalizado
+            html += `<button class="btn btn-secondary" style="background: #0284c7; color: #fff;" onclick="abrirModalVerPronosticosPartidos(${partido.id}, '${partido.equipo_visitante}', '${partido.equipo_local}')"><i class="fa-solid fa-users-viewfinder"></i> Ver Pronósticos</button>`;
+            
+            if (partido.estado === 'FINALIZADO') {
+                html += `<span class="points-earned-badge">+${pred.puntos_obtenidos !== undefined ? pred.puntos_obtenidos : 0} pts obtenidos</span>`;
+            }
         }
 
         if (currentUser.id === 1) {
@@ -654,6 +658,54 @@ async function renderGames() {
         html += `</div></div>`;
         container.innerHTML += html;
     });
+}
+
+// Función para abrir y cargar los pronósticos del partido en el modal
+async function abrirModalVerPronosticosPartidos(partidoId, visNombre, locNombre) {
+    const selectGame = document.getElementById('group-select-game');
+    const grupoId = selectGame ? selectGame.value : null;
+    if (!grupoId) return alert('Selecciona una liga.');
+
+    document.getElementById('ver-pred-match-title').textContent = `${visNombre} vs ${locNombre}`;
+    openModal('ver-pronosticos-modal');
+    
+    const tbody = document.getElementById('ver-pred-tbody');
+    tbody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: var(--text-muted);">Cargando pronósticos...</td></tr>`;
+
+    try {
+        const res = await fetch(`${API_URL}/pronosticos/partido/${grupoId}/${partidoId}`);
+        const data = await res.json();
+
+        if (res.ok) {
+            tbody.innerHTML = '';
+            if (data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: var(--text-muted);">No hay miembros en esta liga.</td></tr>`;
+                return;
+            }
+
+            data.forEach(p => {
+                const predTexto = (p.carreras_vis_pred !== null && p.carreras_loc_pred !== null) 
+                    ? `<code>${p.carreras_vis_pred} - ${p.carreras_loc_pred}</code>` 
+                    : `<span style="color: var(--text-muted); font-style: italic;">Sin pronóstico</span>`;
+                
+                const ptsTexto = (p.puntos_obtenidos !== null && p.puntos_obtenidos !== undefined) 
+                    ? `<strong>+${p.puntos_obtenidos} pts</strong>` 
+                    : `-`;
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td><strong>${p.username}</strong></td>
+                        <td>${predTexto}</td>
+                        <td>${ptsTexto}</td>
+                    </tr>
+                `;
+            });
+        } else {
+            tbody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: var(--danger);">${data.error || 'Error al cargar.'}</td></tr>`;
+        }
+    } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: var(--danger);">Error de conexión.</td></tr>`;
+    }
 }
 
 async function guardarPronostico(partidoId, grupoId, yaExistia) {

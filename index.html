@@ -221,6 +221,27 @@
         </div>
     </div>
 
+    <!-- MODAL NUEVO: Ver Pronósticos de Partido Cerrado / Finalizado -->
+    <div id="ver-pronosticos-modal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <span class="close-btn" onclick="closeModal('ver-pronosticos-modal')">&times;</span>
+            <h3 id="ver-pred-match-title">Pronósticos del Partido</h3>
+            <p class="subtitle" style="margin-bottom: 1rem;">Predicciones de los usuarios de esta liga (Partido Cerrado / Finalizado)</p>
+            <div class="table-container" style="max-height: 300px; overflow-y: auto;">
+                <table class="leaderboard-table">
+                    <thead>
+                        <tr>
+                            <th>Usuario</th>
+                            <th>Pronóstico (V - L)</th>
+                            <th>Puntos</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ver-pred-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
     <div id="admin-predictions-modal" class="modal">
         <div class="modal-content" style="max-width: 700px;">
             <span class="close-btn" onclick="closeModal('admin-predictions-modal')">&times;</span>

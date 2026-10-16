@@ -305,6 +305,33 @@ app.get('/api/pronosticos/:grupoId/:usuarioId', async (req, res) => {
     }
 });
 
+// NUEVO ENDPOINT: Ver pronósticos de todos los usuarios de la liga (Solo si el partido está CERRADO o FINALIZADO)
+app.get('/api/pronosticos/partido/:grupoId/:partidoId', async (req, res) => {
+    const { grupoId, partidoId } = req.params;
+    try {
+        const partidoRes = await pool.query('SELECT estado FROM partidos WHERE id = $1', [partidoId]);
+        if (partidoRes.rows.length === 0) return res.status(404).json({ error: 'Partido no encontrado.' });
+        
+        const estadoPartido = partidoRes.rows[0].estado;
+        if (estadoPartido === 'PENDIENTE') {
+            return res.status(403).json({ error: 'Los pronósticos están ocultos hasta que el partido esté cerrado o finalizado.' });
+        }
+
+        const query = `
+            SELECT u.username, pr.carreras_vis_pred, pr.carreras_loc_pred, pr.puntos_obtenidos
+            FROM miembros_grupo mg
+            JOIN usuarios u ON mg.usuario_id = u.id
+            LEFT JOIN pronosticos pr ON pr.usuario_id = u.id AND pr.partido_id = $2 AND pr.grupo_id = $1
+            WHERE mg.grupo_id = $1
+            ORDER BY u.username ASC;
+        `;
+        const result = await pool.query(query, [grupoId, partidoId]);
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.get('/api/admin/pronosticos/:grupoId', async (req, res) => {
     try {
         const result = await pool.query(`SELECT u.username, p.equipo_visitante, p.equipo_local, pr.carreras_vis_pred, pr.carreras_loc_pred, p.fecha_juego FROM pronosticos pr JOIN usuarios u ON pr.usuario_id = u.id JOIN partidos p ON pr.partido_id = p.id WHERE pr.grupo_id = $1 ORDER BY p.fecha_juego DESC, u.username ASC`, [req.params.grupoId]);
@@ -317,7 +344,7 @@ app.get('/api/admin/pronosticos/:grupoId', async (req, res) => {
 app.post('/api/pronosticos', async (req, res) => {
     const { grupo_id, usuario_id, partido_id, carreras_vis_pred, carreras_loc_pred } = req.body;
     try {
-        const partidoRes = await pool.query('SELECT * FROM partidos WHERE id = \$1', [partido_id]);
+        const partidoRes = await pool.query('SELECT * FROM partidos WHERE id = $1', [partido_id]);
         if (partidoRes.rows.length === 0) return res.status(404).json({ error: 'Partido no encontrado.' });
         if (partidoRes.rows[0].estado !== 'PENDIENTE') return res.status(400).json({ error: 'Partido cerrado.' });
 
@@ -331,7 +358,7 @@ app.post('/api/pronosticos', async (req, res) => {
 app.post('/api/partidos/resultado', async (req, res) => {
     const { partido_id, carreras_visitante, carreras_local } = req.body;
     try {
-        await pool.query('UPDATE partidos SET estado = \$1, carreras_visitante = \$2, carreras_local = \$3 WHERE id = \$4', ['FINALIZADO', carreras_visitante, carreras_local, partido_id]);
+        await pool.query('UPDATE partidos SET estado = $1, carreras_visitante = \$2, carreras_local = \$3 WHERE id = \$4', ['FINALIZADO', carreras_visitante, carreras_local, partido_id]);
         const pronosticosRes = await pool.query('SELECT * FROM pronosticos WHERE partido_id = \$1', [partido_id]);
 
         for (let p of pronosticosRes.rows) {
@@ -355,7 +382,7 @@ app.post('/api/partidos/resultado', async (req, res) => {
 
         const totalesRes = await pool.query('SELECT grupo_id, usuario_id, SUM(puntos_obtenidos) as total FROM pronosticos GROUP BY grupo_id, usuario_id');
         for (let r of totalesRes.rows) {
-            await pool.query('UPDATE miembros_grupo SET puntos_acumulados = \$1 WHERE grupo_id = \$2 AND usuario_id = \$3', [r.total, r.grupo_id, r.usuario_id]);
+            await pool.query('UPDATE membros_grupo SET puntos_acumulados = \$1 WHERE grupo_id = \$2 AND usuario_id = \$3', [r.total, r.grupo_id, r.usuario_id]);
         }
 
         res.json({ status: 'ok' });
@@ -374,7 +401,6 @@ app.post('/api/admin/puntos', async (req, res) => {
     }
 });
 
-// CONSULTA BLINDADA CON GROUP BY Y FILTRO DE SEGURIDAD ABSOLUTO EN SERVIDOR
 app.get('/api/leaderboard/:grupoId', async (req, res) => {
     const grupoId = req.params.grupoId;
     const query = `
@@ -390,8 +416,6 @@ app.get('/api/leaderboard/:grupoId', async (req, res) => {
     `;
     try {
         const result = await pool.query(query, [grupoId]);
-        
-        // Doble blindaje: Filtro estricto en Node.js por ID de usuario único
         const unicos = [];
         const idsVistos = new Set();
         for (const row of result.rows) {
@@ -400,7 +424,6 @@ app.get('/api/leaderboard/:grupoId', async (req, res) => {
                 unicos.push(row);
             }
         }
-
         res.json(unicos);
     } catch (err) {
         res.status(500).json({ error: err.message });
