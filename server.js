@@ -403,17 +403,18 @@ app.post('/api/admin/puntos', async (req, res) => {
     }
 });
 
-// Endpoint corregido para evitar duplicados en la tabla de posiciones
+// Endpoint corregido con GROUP BY para evitar duplicados en la tabla de posiciones
 app.get('/api/leaderboard/:grupoId', async (req, res) => {
     const grupoId = req.params.grupoId;
     const query = `
-        SELECT DISTINCT u.id as usuario_id, u.username, 
-               COALESCE(mg.puntos_acumulados, 0) as puntos_acumulados,
-               CASE WHEN g.creador_id = u.id THEN 'CREADOR' ELSE 'MIEMBRO' END as rol 
+        SELECT u.id as usuario_id, u.username, 
+               MAX(COALESCE(mg.puntos_acumulados, 0)) as puntos_acumulados,
+               CASE WHEN MAX(g.creador_id) = u.id THEN 'CREADOR' ELSE 'MIEMBRO' END as rol 
         FROM miembros_grupo mg 
         JOIN usuarios u ON mg.usuario_id = u.id 
         JOIN grupos g ON g.id = mg.grupo_id
         WHERE mg.grupo_id = $1 
+        GROUP BY u.id, u.username
         ORDER BY puntos_acumulados DESC, u.username ASC;
     `;
     try {
