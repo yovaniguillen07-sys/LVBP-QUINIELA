@@ -748,7 +748,6 @@ async function loadHistory() {
         if (res.ok) {
             historialCache = await res.json();
             
-            // Poblar selects de filtro si están vacíos o cambiar
             const fechaSeleccionada = selectFecha.value;
             const jugadorSeleccionado = selectJugador.value;
 
@@ -861,4 +860,13 @@ function copyInviteLink() {
     document.getElementById('share-url-input').select();
     document.execCommand('copy');
     alert('Link copiado.');
+}
+
+// Registrar Service Worker para PWA
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+            .then(reg => console.log('SW registrado con éxito', reg))
+            .catch(err => console.log('Error al registrar SW', err));
+    });
 }
