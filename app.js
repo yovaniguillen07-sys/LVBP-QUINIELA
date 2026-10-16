@@ -16,6 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
 function checkAuthUI() {
     const overlay = document.getElementById('auth-overlay');
     const nameDisplay = document.getElementById('user-display-name');
+    const avatarContainer = document.getElementById('user-avatar-container');
     const btnNuevoPartido = document.getElementById('btn-nuevo-partido');
     const btnAdminPanel = document.getElementById('btn-admin-panel');
     const btnAdminPuntos = document.getElementById('btn-admin-puntos');
@@ -23,6 +24,10 @@ function checkAuthUI() {
     if (currentUser) {
         if (overlay) overlay.style.display = 'none';
         if (nameDisplay) nameDisplay.textContent = currentUser.username;
+        if (avatarContainer) {
+            const iniciales = currentUser.username.substring(0, 2).toUpperCase();
+            avatarContainer.textContent = iniciales;
+        }
         if (currentUser.id === 1) {
             if (btnNuevoPartido) btnNuevoPartido.style.display = 'inline-flex';
             if (btnAdminPanel) btnAdminPanel.style.display = 'inline-flex';
@@ -59,7 +64,7 @@ async function handleAuth(e) {
         const data = await response.json();
 
         if (response.ok) {
-            currentUser = isRegisterMode ? { id: data.userId, username } : data.user;
+            currentUser = isRegisterMode ? { id: data.userId, username, email } : data.user;
             localStorage.setItem('penka_current_user', JSON.stringify(currentUser));
             checkAuthUI();
             cargarGrupos();
@@ -99,7 +104,7 @@ async function handleActualizarPerfil(e) {
     if (res.ok) {
         currentUser = data.user;
         localStorage.setItem('penka_current_user', JSON.stringify(currentUser));
-        document.getElementById('user-display-name').textContent = currentUser.username;
+        checkAuthUI();
         closeModal('profile-modal');
         alert('Perfil actualizado.');
         loadLeaderboard();
@@ -193,6 +198,7 @@ async function cargarGrupos() {
         renderGames();
         loadLeaderboard();
         loadHistory();
+        loadChampionships();
     }
 }
 
@@ -242,34 +248,42 @@ function renderGroups() {
 
     gruposListado.forEach(g => {
         const enProgreso = g.estado === 'EN_PROGRESO';
+        const finalizada = g.estado === 'FINALIZADA';
         const esAdmin = (currentUser.id === 1);
         const esCreador = (currentUser.id === g.creador_id);
         const linkInvitacion = window.location.origin + window.location.pathname + '?join=' + g.codigo_acceso;
 
+        let badgeStyle = 'background:var(--border); color:var(--accent);';
+        if (enProgreso) badgeStyle = 'background:var(--success); color:#fff;';
+        if (finalizada) badgeStyle = 'background:var(--accent); color:#000;';
+
         let html = `<div class="group-card">
-            <div class="group-card-header"><h3>${g.nombre}</h3><span class="badge" style="background:${enProgreso ? 'var(--success)' : 'var(--border)'}; color:${enProgreso ? '#fff' : 'var(--accent)'}">${g.estado}</span></div>
+            <div class="group-card-header"><h3>${g.nombre}</h3><span class="badge" style="${badgeStyle}">${g.estado}</span></div>
             <p style="color: var(--text-muted); font-size: 0.85rem;">Tipo: <strong>${g.tipo}</strong> | Código: <strong>${g.codigo_acceso}</strong></p>
             <div class="group-card-actions">
-                <a href="${linkInvitacion}" class="btn btn-primary" style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center; gap:0.4rem;" target="_blank"><i class="fa-solid fa-user-plus"></i> Unirme Directo</a>
-                <button class="btn btn-secondary" onclick="abrirModalMiembros(${g.id}, '${g.nombre}')"><i class="fa-solid fa-users-gear"></i> Miembros</button>
-                <button class="btn btn-secondary" onclick="openShareModal(${g.id})"><i class="fa-solid fa-share-nodes"></i> QR</button>`;
+                <a href="${linkInvitacion}" class="btn btn-primary" style="text-decoration:none;" target="_blank"><i class="fa-solid fa-user-plus"></i> Unirse</a>
+                <button class="btn btn-secondary" onclick="abrirModalMiembros(${g.id}, '${g.nombre}')"><i class="fa-solid fa-users"></i> Miembros</button>
+                <button class="btn btn-secondary" onclick="openShareModal(${g.id})"><i class="fa-solid fa-share-nodes"></i> QR</button>
+                <button class="btn btn-secondary" style="background:#0284c7;" onclick="abrirModalAdminPronosticos(${g.id}, '${g.nombre}')"><i class="fa-solid fa-eye"></i> Pronósticos</button>`;
 
-        if (esCreador && !enProgreso) {
-            html += `<button class="btn btn-primary" onclick="comenzarLiga(${g.id})">Comenzar Liga</button>
-                     <button class="btn btn-secondary" onclick="abrirModalEditarGrupo(${g.id}, '${g.nombre}', '${g.tipo}', '${g.password || ''}')"><i class="fa-solid fa-pen"></i></button>
-                     <button class="btn btn-danger" onclick="eliminarGrupo(${g.id})"><i class="fa-solid fa-trash"></i></button>`;
+        if (esCreador && g.estado === 'CONFIGURACION') {
+            html += `<button class="btn btn-primary" onclick="comenzarLiga(${g.id})">Comenzar</button>`;
         }
 
-        if (esCreador && enProgreso && !esAdmin) {
+        if ((esCreador || esAdmin) && enProgreso) {
+            html += `<button class="btn btn-primary" style="background:var(--success);" onclick="finalizarLiga(${g.id})"><i class="fa-solid fa-flag-checkered"></i> Finalizar</button>`;
+        }
+
+        if (esCreador && !finalizada) {
             html += `<button class="btn btn-secondary" onclick="abrirModalEditarGrupo(${g.id}, '${g.nombre}', '${g.tipo}', '${g.password || ''}')"><i class="fa-solid fa-pen"></i></button>`;
         }
 
         if (esAdmin) {
-            if (enProgreso) {
-                html += `<button class="btn btn-secondary" onclick="abrirModalEditarGrupo(${g.id}, '${g.nombre}', '${g.tipo}', '${g.password || ''}')"><i class="fa-solid fa-pen"></i></button>`;
-            }
-            html += `<button class="btn btn-danger" style="background: #ca8a04;" onclick="resetearLiga(${g.id})">Resetear</button>
-                     <button class="btn btn-danger" onclick="eliminarGrupo(${g.id})"><i class="fa-solid fa-trash"></i></button>`;
+            html += `<button class="btn btn-secondary" style="background: #ca8a04;" onclick="resetearLiga(${g.id})">Resetear</button>`;
+        }
+
+        if (esCreador || esAdmin) {
+            html += `<button class="btn btn-danger" onclick="eliminarGrupo(${g.id})"><i class="fa-solid fa-trash"></i></button>`;
         }
 
         html += `</div></div>`;
@@ -281,8 +295,9 @@ function populateGroupSelects() {
     const selectFilter = document.getElementById('group-filter');
     const selectGame = document.getElementById('group-select-game');
     const selectHistory = document.getElementById('group-filter-history');
+    const selectChampionships = document.getElementById('group-filter-championships');
     
-    [selectFilter, selectGame, selectHistory].forEach(select => {
+    [selectFilter, selectGame, selectHistory, selectChampionships].forEach(select => {
         if (!select) return;
         const valActual = select.value;
         select.innerHTML = '';
@@ -297,10 +312,11 @@ function populateGroupSelects() {
     });
     loadLeaderboard();
     loadHistory();
+    loadChampionships();
 }
 
 function abrirModalCrearGrupo() {
-    document.getElementById('group-modal-title').textContent = 'Crear Nueva Penka LVBP';
+    document.getElementById('group-modal-title').textContent = 'Crear Nueva Liga';
     document.getElementById('edit-group-id').value = '';
     document.getElementById('group-name').value = '';
     document.getElementById('group-type').value = 'PUBLICA';
@@ -383,17 +399,43 @@ async function abrirModalMiembros(grupoId, grupoNombre) {
     if (res.ok) {
         const miembros = await res.json();
         const grupo = gruposListado.find(g => g.id === grupoId);
-        const enProgreso = grupo && grupo.estado === 'EN_PROGRESO';
+        const enConfig = grupo && grupo.estado === 'CONFIGURACION';
         const esAdminOrCreador = (currentUser.id === 1 || (grupo && currentUser.id === grupo.creador_id));
+
+        const thEmail = document.getElementById('th-email-header');
+        if (esAdminOrCreador) {
+            thEmail.style.display = 'table-cell';
+        } else {
+            thEmail.style.display = 'none';
+        }
 
         const tbody = document.getElementById('members-tbody');
         tbody.innerHTML = '';
         miembros.forEach(m => {
             let accionBtn = '';
-            if (esAdminOrCreador && !enProgreso && m.usuario_id !== currentUser.id) {
+            if (esAdminOrCreador && enConfig && m.usuario_id !== currentUser.id) {
                 accionBtn = `<button class="btn btn-danger" style="padding:0.25rem 0.5rem;font-size:0.8rem;" onclick="expulsarMiembro(${grupoId}, ${m.usuario_id})">Expulsar</button>`;
             }
-            tbody.innerHTML += `<tr><td>${m.username}</td><td>${m.email}</td><td>${accionBtn}</td></tr>`;
+            let emailTd = esAdminOrCreador ? `<td>${m.email}</td>` : '';
+            tbody.innerHTML += `<tr><td>${m.username}</td>${emailTd}<td>${accionBtn}</td></tr>`;
+        });
+    }
+}
+
+async function abrirModalAdminPronosticos(grupoId, grupoNombre) {
+    document.getElementById('admin-pred-title').textContent = 'Pronósticos en: ' + grupoNombre;
+    openModal('admin-predictions-modal');
+    const res = await fetch(API_URL + '/admin/pronosticos/' + grupoId);
+    if (res.ok) {
+        const preds = await res.json();
+        const tbody = document.getElementById('admin-pred-tbody');
+        tbody.innerHTML = '';
+        if (preds.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; color:var(--text-muted);">No hay pronósticos registrados todavía.</td></tr>`;
+            return;
+        }
+        preds.forEach(p => {
+            tbody.innerHTML += `<tr><td><strong>${p.username}</strong></td><td>${p.equipo_visitante} vs ${p.equipo_local} (${p.fecha_juego})</td><td><code>${p.carreras_vis_pred} - ${p.carreras_loc_pred}</code></td></tr>`;
         });
     }
 }
@@ -412,13 +454,26 @@ async function expulsarMiembro(grupoId, usuarioId) {
 }
 
 async function comenzarLiga(grupoId) {
-    if (!confirm('¿Comenzar liga? Una vez en progreso ya no se podrá modificar la configuración ni expulsar usuarios.')) return;
+    if (!confirm('¿Comenzar liga? Una vez iniciada ya no se podrá modificar la configuración ni expulsar usuarios.')) return;
     const res = await fetch(API_URL + '/grupos/comenzar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ grupo_id: grupoId })
     });
     if (res.ok) cargarGrupos();
+}
+
+async function finalizarLiga(grupoId) {
+    if (!confirm('¿Finalizar liga? Se cerrará oficialmente el torneo y se asignarán los trofeos de Oro, Plata y Bronce según la tabla de posiciones.')) return;
+    const res = await fetch(API_URL + '/grupos/finalizar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ grupo_id: grupoId })
+    });
+    if (res.ok) {
+        alert('¡Liga finalizada con éxito! Revisa el Salón de Campeones.');
+        cargarGrupos();
+    }
 }
 
 async function eliminarGrupo(grupoId) {
@@ -428,7 +483,7 @@ async function eliminarGrupo(grupoId) {
 }
 
 async function resetearLiga(grupoId) {
-    if (!confirm('¿Estás seguro de resetear la liga? Se borrarán todos los pronósticos y puntajes a cero.')) return;
+    if (!confirm('¿Estás seguro de resetear la liga? Se borrarán todos los pronósticos, campeonatos y puntajes a cero.')) return;
     const res = await fetch(API_URL + '/grupos/resetear', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -436,9 +491,7 @@ async function resetearLiga(grupoId) {
     });
     if (res.ok) {
         alert('Liga reseteada.');
-        renderGames();
-        loadLeaderboard();
-        loadHistory();
+        cargarGrupos();
     }
 }
 
@@ -523,7 +576,7 @@ async function renderGames() {
     if (!container) return;
 
     if (!selectedGroupId) {
-        container.innerHTML = `<p style="color: var(--text-muted); text-align: center; padding: 2rem;">Selecciona o crea una liga primero en la pestaña "Mis Grupos / Ligas".</p>`;
+        container.innerHTML = `<p style="color: var(--text-muted); text-align: center; padding: 2rem;">Selecciona o crea una liga primero en la pestaña "Ligas / Pools".</p>`;
         return;
     }
 
@@ -554,9 +607,14 @@ async function renderGames() {
         }
 
         const pred = pronosticos.find(p => p.partido_id === partido.id) || { carreras_vis_pred: '', carreras_loc_pred: '', puntos_obtenidos: 0 };
+        const tienePronostico = pred.carreras_vis_pred !== '' && pred.carreras_vis_pred !== null && pred.carreras_vis_pred !== undefined;
+
         let estadoBadge = `<span class="badge">${partido.estado}</span>`;
         if (partido.estado === 'CERRADO') estadoBadge = `<span class="badge" style="background: #eab308; color: #000;">CERRADO</span>`;
         if (partido.estado === 'FINALIZADO') estadoBadge = `<span class="badge badge-finished">FINALIZADO (${partido.carreras_visitante} - ${partido.carreras_local})</span>`;
+
+        let btnTexto = tienePronostico ? 'Editar' : 'Guardar';
+        let btnClase = tienePronostico ? 'btn btn-secondary' : 'btn btn-primary';
 
         let html = `<div class="game-card">
             <div class="game-info">
@@ -564,19 +622,19 @@ async function renderGames() {
                 <div class="team-matchup" style="margin-top: 0.5rem;"><span>${partido.equipo_visitante}</span> vs <span>${partido.equipo_local}</span></div>
                 <div class="stadium"><i class="fa-solid fa-location-dot"></i> ${partido.estadio}</div>
             </div>
-            <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
                 <input type="number" class="score-input" id="pred-vis-${partido.id}" value="${pred.carreras_vis_pred}" ${partido.estado !== 'PENDIENTE' ? 'disabled' : ''}>
                 <span>-</span>
                 <input type="number" class="score-input" id="pred-loc-${partido.id}" value="${pred.carreras_loc_pred}" ${partido.estado !== 'PENDIENTE' ? 'disabled' : ''}>`;
 
         if (partido.estado === 'PENDIENTE') {
-            html += `<button class="btn btn-primary" onclick="guardarPronostico(${partido.id}, ${selectedGroupId})">Guardar</button>`;
+            html += `<button class="${btnClase}" id="btn-pred-${partido.id}" onclick="guardarPronostico(${partido.id}, ${selectedGroupId}, ${tienePronostico})">${btnTexto}</button>`;
         } else if (partido.estado === 'FINALIZADO') {
-            html += `<span class="points-earned-badge">+${pred.puntos_obtenidos !== undefined ? pred.puntos_obtenidos : 0} pts</span>`;
+            html += `<span class="points-earned-badge">+${pred.puntos_obtenidos !== undefined ? pred.puntos_obtenidos : 0} pts obtenidos</span>`;
         }
 
         if (currentUser.id === 1) {
-            html += `<div style="display:flex; gap:0.25rem; margin-left: 0.5rem;">`;
+            html += `<div style="display:flex; gap:0.25rem; margin-left: 0.5rem; flex-wrap:wrap;">`;
             if (partido.estado === 'PENDIENTE') {
                 html += `<button class="btn btn-secondary" style="background:#eab308; color:#000;" onclick="cambiarEstadoPartido(${partido.id}, 'CERRADO')">Cerrar</button>`;
             } else if (partido.estado === 'CERRADO') {
@@ -592,10 +650,15 @@ async function renderGames() {
     });
 }
 
-async function guardarPronostico(partidoId, grupoId) {
+async function guardarPronostico(partidoId, grupoId, yaExistia) {
     const vis = document.getElementById('pred-vis-' + partidoId).value;
     const loc = document.getElementById('pred-loc-' + partidoId).value;
     if (vis === '' || loc === '') return alert('Ingresa las carreras.');
+
+    if (yaExistia) {
+        const confirmar = confirm('¿Deseas modificar tu pronóstico ya guardado? Esto es una medida de seguridad contra errores de dedo.');
+        if (!confirmar) return;
+    }
 
     const res = await fetch(API_URL + '/pronosticos', {
         method: 'POST',
@@ -603,7 +666,7 @@ async function guardarPronostico(partidoId, grupoId) {
         body: JSON.stringify({ grupo_id: grupoId, usuario_id: currentUser.id, partido_id: partidoId, carreras_vis_pred: parseInt(vis), carreras_loc_pred: parseInt(loc) })
     });
     if (res.ok) {
-        alert('Pronóstico guardado.');
+        alert('Pronóstico guardado exitosamente.');
         renderGames();
         loadLeaderboard();
         loadHistory();
@@ -656,42 +719,122 @@ async function loadLeaderboard() {
     if (res.ok) {
         const listado = await res.json();
         listado.forEach((m, index) => {
-            tbody.innerHTML += `<tr><td>#${index + 1}</td><td><strong>${m.username}</strong></td><td><span class="badge">${m.rol}</span></td><td><strong>${m.puntos_acumulados} pts</strong></td></tr>`;
+            let trofeoIcon = '';
+            if (index === 0) trofeoIcon = ' <i class="fa-solid fa-trophy" style="color:var(--gold);" title="Campeón (Oro)"></i>';
+            if (index === 1) trofeoIcon = ' <i class="fa-solid fa-trophy" style="color:var(--silver);" title="Subcampeón (Plata)"></i>';
+            if (index === 2) trofeoIcon = ' <i class="fa-solid fa-trophy" style="color:var(--bronze);" title="Tercer Lugar (Bronce)"></i>';
+
+            tbody.innerHTML += `<tr><td>#${index + 1}</td><td><strong>${m.username}</strong>${trofeoIcon}</td><td><span class="badge">${m.rol}</span></td><td><strong>${m.puntos_acumulados} pts</strong></td></tr>`;
         });
     }
 }
 
+let historialCache = [];
+
 async function loadHistory() {
     const selectedGroupId = parseInt(document.getElementById('group-filter-history')?.value);
     const tbody = document.getElementById('history-body');
+    const selectFecha = document.getElementById('filter-history-fecha');
+    const selectJugador = document.getElementById('filter-history-jugador');
     if (!tbody) return;
-    tbody.innerHTML = '';
 
     if (!selectedGroupId) {
         tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">Selecciona una liga para ver el historial.</td></tr>`;
         return;
     }
 
-    const res = await fetch(API_URL + '/historial/' + selectedGroupId);
+    try {
+        const res = await fetch(API_URL + '/historial/' + selectedGroupId);
+        if (res.ok) {
+            historialCache = await res.json();
+            
+            // Poblar selects de filtro si están vacíos o cambiar
+            const fechaSeleccionada = selectFecha.value;
+            const jugadorSeleccionado = selectJugador.value;
+
+            const fechasUnicas = [...new Set(historialCache.map(h => h.fecha_juego))];
+            const jugadoresUnicos = [...new Set(historialCache.map(h => h.username))];
+
+            selectFecha.innerHTML = `<option value="">Todas las Fechas</option>`;
+            fechasUnicas.forEach(f => {
+                selectFecha.innerHTML += `<option value="${f}">${f}</option>`;
+            });
+            selectFecha.value = fechaSeleccionada;
+
+            selectJugador.innerHTML = `<option value="">Todos los Jugadores</option>`;
+            jugadoresUnicos.forEach(j => {
+                selectJugador.innerHTML += `<option value="${j}">${j}</option>`;
+            });
+            selectJugador.value = jugadorSeleccionado;
+
+            aplicarFiltrosHistorial();
+        }
+    } catch (e) {}
+}
+
+function aplicarFiltrosHistorial() {
+    const tbody = document.getElementById('history-body');
+    const fechaVal = document.getElementById('filter-history-fecha').value;
+    const jugadorVal = document.getElementById('filter-history-jugador').value;
+
+    let filtrados = historialCache.filter(h => {
+        let matchFecha = !fechaVal || h.fecha_juego === fechaVal;
+        let matchJugador = !jugadorVal || h.username === jugadorVal;
+        return matchFecha && matchJugador;
+    });
+
+    tbody.innerHTML = '';
+    if (filtrados.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">No hay registros que coincidan con los filtros.</td></tr>`;
+        return;
+    }
+
+    filtrados.forEach(h => {
+        let badgeColor = h.puntos_obtenidos === 6 ? 'var(--success)' : (h.puntos_obtenidos >= 2 ? 'var(--accent)' : 'var(--border)');
+        tbody.innerHTML += `
+            <tr>
+                <td><strong>${h.username}</strong></td>
+                <td>${h.equipo_visitante} vs ${h.equipo_local}</td>
+                <td>${h.fecha_juego}</td>
+                <td><code style="font-size:0.95rem;">${h.carreras_vis_pred} - ${h.carreras_loc_pred}</code></td>
+                <td><code style="font-size:0.95rem;">${h.real_vis} - ${h.real_loc}</code></td>
+                <td><span class="badge" style="background:${badgeColor}; color:#000; font-weight:bold;">+${h.puntos_obtenidos} pts</span></td>
+            </tr>
+        `;
+    });
+}
+
+async function loadChampionships() {
+    const selectedGroupId = parseInt(document.getElementById('group-filter-championships')?.value);
+    const container = document.getElementById('championships-container');
+    if (!container) return;
+    container.innerHTML = '';
+
+    if (!selectedGroupId) {
+        container.innerHTML = `<p style="color: var(--text-muted); text-align: center; padding: 2rem;">Selecciona una liga para ver el Salón de Campeones.</p>`;
+        return;
+    }
+
+    const res = await fetch(API_URL + '/campeonatos/' + selectedGroupId);
     if (res.ok) {
-        const historial = await res.json();
-        if (historial.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">No hay partidos finalizados con puntos registrados todavía.</td></tr>`;
+        const camp = await res.json();
+        if (camp.length === 0) {
+            container.innerHTML = `<p style="color: var(--text-muted); text-align: center; padding: 2rem;">Aún no se ha finalizado esta liga para otorgar trofeos.</p>`;
             return;
         }
-        historial.forEach(h => {
-            let badgeColor = h.puntos_obtenidos === 6 ? 'var(--success)' : (h.puntos_obtenidos >= 2 ? 'var(--accent)' : 'var(--border)');
-            tbody.innerHTML += `
-                <tr>
-                    <td><strong>${h.username}</strong></td>
-                    <td>${h.equipo_visitante} vs ${h.equipo_local}</td>
-                    <td>${h.fecha_juego}</td>
-                    <td><code style="font-size:0.95rem;">${h.carreras_vis_pred} - ${h.carreras_loc_pred}</code></td>
-                    <td><code style="font-size:0.95rem;">${h.real_vis} - ${h.real_loc}</code></td>
-                    <td><span class="badge" style="background:${badgeColor}; color:#000; font-weight:bold;">+${h.puntos_obtenidos} pts</span></td>
-                </tr>
-            `;
+
+        let html = `<div class="table-container"><table class="leaderboard-table"><thead><tr><th>Premio</th><th>Jugador</th><th>Fecha de Cierre</th></tr></thead><tbody>`;
+        camp.forEach(c => {
+            let medalla = '';
+            let colorPremio = '';
+            if (c.puesto === 1) { medalla = '<i class="fa-solid fa-trophy" style="color:var(--gold);"></i> 1er Lugar (Oro)'; colorPremio = 'var(--gold)'; }
+            else if (c.puesto === 2) { medalla = '<i class="fa-solid fa-trophy" style="color:var(--silver);"></i> 2do Lugar (Plata)'; colorPremio = 'var(--silver)'; }
+            else if (c.puesto === 3) { medalla = '<i class="fa-solid fa-trophy" style="color:var(--bronze);"></i> 3er Lugar (Bronce)'; colorPremio = 'var(--bronze)'; }
+
+            html += `<tr><td><strong style="color:${colorPremio}">${medalla}</strong></td><td><strong>${c.username}</strong></td><td>${new Date(c.fecha_finalizacion).toLocaleDateString()}</td></tr>`;
         });
+        html += `</tbody></table></div>`;
+        container.innerHTML = html;
     }
 }
 

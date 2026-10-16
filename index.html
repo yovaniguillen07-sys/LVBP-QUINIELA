@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quiniela LVBP - Estilo Penka</title>
+    <title>Quiniela LVBP - Pools & Ligas</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -43,7 +43,7 @@
             <span>Quiniela <strong>LVBP</strong></span>
         </div>
         <div class="user-profile">
-            <i class="fa-solid fa-user-circle"></i>
+            <div id="user-avatar-container" style="display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; border-radius:50%; background:var(--primary); color:#fff; font-weight:bold; font-size:0.85rem;"></div>
             <span id="user-display-name">Invitado</span>
             <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem; margin-left: 0.5rem;" onclick="abrirModalPerfil()">Perfil</button>
             <button id="btn-admin-panel" class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem; margin-left: 0.5rem; display: none; background: var(--accent); color: #000;" onclick="abrirModalAdminUsuarios()">Panel Admin</button>
@@ -55,7 +55,7 @@
     <main class="container">
         <aside class="sidebar">
             <button class="nav-btn active" onclick="switchTab('groups-tab')">
-                <i class="fa-solid fa-users"></i> Mis Grupos / Ligas
+                <i class="fa-solid fa-users"></i> Ligas / Pools
             </button>
             <button class="nav-btn" onclick="switchTab('games-tab')">
                 <i class="fa-solid fa-calendar-days"></i> Partidos & Pronósticos
@@ -66,6 +66,9 @@
             <button class="nav-btn" onclick="switchTab('history-tab')">
                 <i class="fa-solid fa-clock-rotate-left"></i> Historial de Puntos
             </button>
+            <button class="nav-btn" onclick="switchTab('championships-tab')">
+                <i class="fa-solid fa-award"></i> Salón de Campeones
+            </button>
             <button class="nav-btn" onclick="switchTab('rules-tab')">
                 <i class="fa-solid fa-book-open"></i> Reglas de Puntuación
             </button>
@@ -75,8 +78,8 @@
             <!-- TAB 1: GRUPOS / LIGAS -->
             <div id="groups-tab" class="tab-content active">
                 <div class="section-header">
-                    <h2>Gestión de Ligas (Penkas)</h2>
-                    <div style="display: flex; gap: 0.5rem;">
+                    <h2>Gestión de Ligas</h2>
+                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
                         <button class="btn btn-secondary" onclick="abrirModalUnirseLiga()"><i class="fa-solid fa-right-to-bracket"></i> Unirse a Liga</button>
                         <button class="btn btn-primary" onclick="abrirModalCrearGrupo()"><i class="fa-solid fa-plus"></i> Crear Liga</button>
                     </div>
@@ -88,7 +91,7 @@
             <div id="games-tab" class="tab-content">
                 <div class="section-header">
                     <h2>Jornada LVBP & Pronósticos</h2>
-                    <div style="display: flex; gap: 0.5rem;">
+                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
                         <select id="group-select-game" onchange="renderGames()"></select>
                         <button id="btn-nuevo-partido" class="btn btn-primary" style="display: none;" onclick="abrirModalCrearPartido()">
                             <i class="fa-solid fa-plus"></i> Añadir Partido
@@ -102,7 +105,7 @@
             <div id="leaderboard-tab" class="tab-content">
                 <div class="section-header">
                     <h2>Tabla de Posiciones</h2>
-                    <div style="display: flex; gap: 0.5rem;">
+                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
                         <select id="group-filter" onchange="loadLeaderboard()"></select>
                         <button id="btn-admin-puntos" class="btn btn-secondary" style="display: none; background: var(--accent); color: #000;" onclick="abrirModalAdminPuntos()">Modificar Puntos</button>
                     </div>
@@ -126,8 +129,14 @@
             <div id="history-tab" class="tab-content">
                 <div class="section-header">
                     <h2>Historial de Puntos por Partido</h2>
-                    <div style="display: flex; gap: 0.5rem;">
+                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
                         <select id="group-filter-history" onchange="loadHistory()"></select>
+                        <select id="filter-history-fecha" onchange="loadHistory()" style="padding: 0.5rem; background: var(--card-bg); border: 1px solid var(--border); color: var(--text); border-radius: 6px;">
+                            <option value="">Todas las Fechas</option>
+                        </select>
+                        <select id="filter-history-jugador" onchange="loadHistory()" style="padding: 0.5rem; background: var(--card-bg); border: 1px solid var(--border); color: var(--text); border-radius: 6px;">
+                            <option value="">Todos los Jugadores</option>
+                        </select>
                     </div>
                 </div>
                 <div class="table-container">
@@ -147,7 +156,16 @@
                 </div>
             </div>
 
-            <!-- TAB 5: REGLAS -->
+            <!-- TAB 5: SALÓN DE CAMPEONES -->
+            <div id="championships-tab" class="tab-content">
+                <div class="section-header">
+                    <h2>Salón de Campeones & Trofeos</h2>
+                    <select id="group-filter-championships" onchange="loadChampionships()"></select>
+                </div>
+                <div id="championships-container" style="display: flex; flex-direction: column; gap: 1rem;"></div>
+            </div>
+
+            <!-- TAB 6: REGLAS -->
             <div id="rules-tab" class="tab-content">
                 <div class="section-header"><h2>Reglas de Puntuación</h2></div>
                 <div class="rules-container">
@@ -162,6 +180,10 @@
                     <div class="rule-card">
                         <div class="rule-header"><span class="rule-points">2 PTS</span><h3>Acierto de Carreras Totales</h3></div>
                         <p>La suma total de carreras coincide con la real sin acertar el ganador.</p>
+                    </div>
+                    <div class="rule-card" style="border-color: var(--accent);">
+                        <div class="rule-header"><span class="rule-points" style="background:var(--card-bg); color:var(--accent); border:1px solid var(--accent);">NOTA</span><h3>Límite de Modificación</h3></div>
+                        <p>Nota: El pronóstico del partido podrá ser modificado hasta 1 hora antes de la hora de inicio del juego.</p>
                     </div>
                 </div>
             </div>
@@ -182,13 +204,26 @@
     </div>
 
     <div id="members-modal" class="modal">
-        <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-content" style="max-width: 550px;">
             <span class="close-btn" onclick="closeModal('members-modal')">&times;</span>
             <h3 id="members-modal-title">Miembros de la Liga</h3>
             <div class="table-container" style="max-height: 250px; overflow-y: auto; margin-top: 1rem;">
                 <table class="leaderboard-table">
-                    <thead><tr><th>Usuario</th><th>Correo</th><th>Acción</th></tr></thead>
+                    <thead><tr><th>Usuario</th><th id="th-email-header">Correo</th><th>Acción</th></tr></thead>
                     <tbody id="members-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="admin-predictions-modal" class="modal">
+        <div class="modal-content" style="max-width: 700px;">
+            <span class="close-btn" onclick="closeModal('admin-predictions-modal')">&times;</span>
+            <h3 id="admin-pred-title">Pronósticos de los Jugadores</h3>
+            <div class="table-container" style="max-height: 350px; overflow-y: auto; margin-top: 1rem;">
+                <table class="leaderboard-table">
+                    <thead><tr><th>Jugador</th><th>Partido</th><th>Pronóstico V - L</th></tr></thead>
+                    <tbody id="admin-pred-tbody"></tbody>
                 </table>
             </div>
         </div>
@@ -200,10 +235,10 @@
             <h3>Gestión General de Usuarios</h3>
             <div style="margin: 1rem 0;">
                 <h4>Crear Nuevo Usuario</h4>
-                <form onsubmit="handleAdminCrearUsuario(event)" style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
-                    <input type="text" id="adm-user" required placeholder="Usuario" style="flex:1; padding:0.5rem; background:var(--bg-color); border:1px solid var(--border); color:var(--text); border-radius:4px;">
-                    <input type="email" id="adm-email" required placeholder="Correo" style="flex:1; padding:0.5rem; background:var(--bg-color); border:1px solid var(--border); color:var(--text); border-radius:4px;">
-                    <input type="password" id="adm-pass" required placeholder="Clave" style="flex:1; padding:0.5rem; background:var(--bg-color); border:1px solid var(--border); color:var(--text); border-radius:4px;">
+                <form onsubmit="handleAdminCrearUsuario(event)" style="display: flex; gap: 0.5rem; margin-top: 0.5rem; flex-wrap: wrap;">
+                    <input type="text" id="adm-user" required placeholder="Usuario" style="flex:1; min-width:120px; padding:0.5rem; background:var(--bg-color); border:1px solid var(--border); color:var(--text); border-radius:4px;">
+                    <input type="email" id="adm-email" required placeholder="Correo" style="flex:1; min-width:150px; padding:0.5rem; background:var(--bg-color); border:1px solid var(--border); color:var(--text); border-radius:4px;">
+                    <input type="password" id="adm-pass" required placeholder="Clave" style="flex:1; min-width:100px; padding:0.5rem; background:var(--bg-color); border:1px solid var(--border); color:var(--text); border-radius:4px;">
                     <button type="submit" class="btn btn-primary">Crear</button>
                 </form>
             </div>
@@ -245,7 +280,7 @@
     <div id="create-group-modal" class="modal">
         <div class="modal-content">
             <span class="close-btn" onclick="closeModal('create-group-modal')">&times;</span>
-            <h3 id="group-modal-title">Crear Nueva Penka LVBP</h3>
+            <h3 id="group-modal-title">Crear Nueva Liga</h3>
             <form onsubmit="handleGuardarGrupo(event)">
                 <input type="hidden" id="edit-group-id">
                 <div class="form-group"><label>Nombre del Grupo / Liga</label><input type="text" id="group-name" required placeholder="Nueva Liga LVBP"></div>
