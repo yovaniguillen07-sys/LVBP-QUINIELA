@@ -194,15 +194,15 @@ async function cargarGrupos() {
     if (res.ok) {
         gruposListado = await res.json();
         renderGroups();
-        populateGroupSelects();
+        populateGroupSelects(); // Esto ya carga las vistas una vez de forma limpia
         renderGames();
         
         const selectFilter = document.getElementById('group-filter');
         if (selectFilter && selectFilter.options.length > 0 && !selectFilter.value) {
             selectFilter.selectedIndex = 0;
+            loadLeaderboard();
         }
 
-        loadLeaderboard();
         loadHistory();
         loadChampionships();
     }

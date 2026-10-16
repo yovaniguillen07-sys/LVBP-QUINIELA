@@ -19,18 +19,20 @@ async function initDB() {
         await pool.query(`CREATE TABLE IF NOT EXISTS grupos (id SERIAL PRIMARY KEY, nombre TEXT NOT NULL, codigo_acceso TEXT UNIQUE NOT NULL, tipo TEXT DEFAULT 'PUBLICA', password TEXT DEFAULT '', estado TEXT DEFAULT 'CONFIGURACION', creador_id INTEGER REFERENCES usuarios(id))`);
         await pool.query(`CREATE TABLE IF NOT EXISTS miembros_grupo (grupo_id INTEGER REFERENCES grupos(id), usuario_id INTEGER REFERENCES usuarios(id), puntos_acumulados INTEGER DEFAULT 0)`);
         
-        // BLINDAJE: Asegurar restricción única y eliminar duplicados físicos en la base de datos
+        // Limpieza y blindaje definitivo de duplicados físicos y llave primaria en PostgreSQL
+        await pool.query(`
+            DELETE FROM miembros_grupo a USING miembros_grupo b
+            WHERE a.ctid < b.ctid 
+              AND a.grupo_id = b.grupo_id 
+              AND a.usuario_id = b.usuario_id;
+        `);
+
         await pool.query(`
             DO $$ 
             BEGIN 
                 IF NOT EXISTS (
                     SELECT 1 FROM pg_constraint WHERE conname = 'miembros_grupo_pkey'
                 ) THEN
-                    DELETE FROM miembros_grupo a USING miembros_grupo b
-                    WHERE a.ctid < b.ctid 
-                      AND a.grupo_id = b.grupo_id 
-                      AND a.usuario_id = b.usuario_id;
-                      
                     ALTER TABLE miembros_grupo ADD PRIMARY KEY (grupo_id, usuario_id);
                 END IF;
             END $$;
@@ -372,7 +374,7 @@ app.post('/api/admin/puntos', async (req, res) => {
     }
 });
 
-// LEADERBOARD CON GROUP BY Y SUMATORIA BLINDADA
+// CONSULTA BLINDADA CON GROUP BY Y FILTRO DE SEGURIDAD ABSOLUTO EN SERVIDOR
 app.get('/api/leaderboard/:grupoId', async (req, res) => {
     const grupoId = req.params.grupoId;
     const query = `
@@ -388,7 +390,18 @@ app.get('/api/leaderboard/:grupoId', async (req, res) => {
     `;
     try {
         const result = await pool.query(query, [grupoId]);
-        res.json(result.rows);
+        
+        // Doble blindaje: Filtro estricto en Node.js por ID de usuario único
+        const unicos = [];
+        const idsVistos = new Set();
+        for (const row of result.rows) {
+            if (!idsVistos.has(row.usuario_id)) {
+                idsVistos.add(row.usuario_id);
+                unicos.push(row);
+            }
+        }
+
+        res.json(unicos);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
