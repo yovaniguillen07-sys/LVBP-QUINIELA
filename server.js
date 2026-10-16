@@ -14,7 +14,7 @@ const pool = new Pool({
     ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
 });
 
-// Inicializar tablas en PostgreSQL de forma persistente
+// Inicializar tablas en PostgreSQL de forma persistente y limpiar duplicados
 async function initDB() {
     try {
         await pool.query(`CREATE TABLE IF NOT EXISTS usuarios (id SERIAL PRIMARY KEY, username TEXT UNIQUE NOT NULL, email TEXT UNIQUE NOT NULL, password TEXT NOT NULL, fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`);
@@ -23,7 +23,16 @@ async function initDB() {
         await pool.query(`CREATE TABLE IF NOT EXISTS partidos (id SERIAL PRIMARY KEY, external_id TEXT UNIQUE, equipo_visitante TEXT NOT NULL, equipo_local TEXT NOT NULL, fecha_juego TEXT NOT NULL, hora TEXT NOT NULL, estadio TEXT, estado TEXT DEFAULT 'PENDIENTE', carreras_visitante INTEGER DEFAULT NULL, carreras_local INTEGER DEFAULT NULL)`);
         await pool.query(`CREATE TABLE IF NOT EXISTS pronosticos (id SERIAL PRIMARY KEY, grupo_id INTEGER REFERENCES grupos(id), usuario_id INTEGER REFERENCES usuarios(id), partido_id INTEGER REFERENCES partidos(id), carreras_vis_pred INTEGER NOT NULL, carreras_loc_pred INTEGER NOT NULL, puntos_obtenidos INTEGER DEFAULT 0, UNIQUE(grupo_id, usuario_id, partido_id))`);
         await pool.query(`CREATE TABLE IF NOT EXISTS campeonatos (id SERIAL PRIMARY KEY, grupo_id INTEGER REFERENCES grupos(id), usuario_id INTEGER REFERENCES usuarios(id), puesto INTEGER NOT NULL, fecha_finalizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`);
-        console.log('Base de datos PostgreSQL conectada y sincronizada correctamente.');
+        
+        // RUTINA DE LIMPIEZA: Elimina cualquier duplicado físico que haya quedado en la tabla
+        await pool.query(`
+            DELETE FROM miembros_grupo a USING miembros_grupo b
+            WHERE a.ctid < b.ctid 
+              AND a.grupo_id = b.grupo_id 
+              AND a.usuario_id = b.usuario_id;
+        `);
+
+        console.log('Base de datos PostgreSQL conectada, sincronizada y limpia de duplicados.');
     } catch (err) {
         console.error('Error al inicializar la base de datos:', err.message);
     }
@@ -403,7 +412,6 @@ app.post('/api/admin/puntos', async (req, res) => {
     }
 });
 
-// Endpoint corregido con GROUP BY estricto en la base de datos
 app.get('/api/leaderboard/:grupoId', async (req, res) => {
     const grupoId = req.params.grupoId;
     const query = `
