@@ -194,7 +194,7 @@ async function cargarGrupos() {
     if (res.ok) {
         gruposListado = await res.json();
         renderGroups();
-        populateGroupSelects(); // Esto ya carga las vistas una vez de forma limpia
+        populateGroupSelects();
         renderGames();
         
         const selectFilter = document.getElementById('group-filter');
@@ -212,6 +212,9 @@ async function verificarEnlaceInvitacion() {
     const params = new URLSearchParams(window.location.search);
     const codigoJoin = params.get('join');
     if (!codigoJoin || !currentUser) return;
+
+    // Limpiamos la URL de inmediato para evitar bucles si cancela o recarga
+    window.history.replaceState({}, document.title, window.location.pathname);
 
     let password = '';
     let res = await fetch(API_URL + '/grupos/unirse', {
@@ -235,10 +238,11 @@ async function verificarEnlaceInvitacion() {
 
     if (res.ok) {
         alert('¡Te has unido exitosamente a la liga: ' + data.nombre + '!');
-        window.history.replaceState({}, document.title, window.location.pathname);
         cargarGrupos();
     } else {
-        if (password !== null) alert(data.error || 'No se pudo unir a la liga.');
+        if (password !== null && password !== '') {
+            alert(data.error || 'No se pudo unir a la liga.');
+        }
     }
 }
 
