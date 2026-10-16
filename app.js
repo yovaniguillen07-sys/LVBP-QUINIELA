@@ -705,9 +705,12 @@ async function handleGuardarResultado(e) {
 }
 
 async function loadLeaderboard() {
-    const selectedGroupId = parseInt(document.getElementById('group-filter')?.value);
+    const selectFilter = document.getElementById('group-filter');
+    const selectedGroupId = parseInt(selectFilter?.value);
     const tbody = document.getElementById('leaderboard-body');
     if (!tbody) return;
+    
+    // Limpieza inmediata para evitar acumulación visual
     tbody.innerHTML = '';
 
     if (!selectedGroupId) {
@@ -715,23 +718,37 @@ async function loadLeaderboard() {
         return;
     }
 
-    const res = await fetch(API_URL + '/leaderboard/' + selectedGroupId);
-    if (res.ok) {
-        let listado = await res.json();
-        
-        // FILTRADO DE SEGURIDAD: Asegura que cada usuario aparezca una sola vez por su ID
-        listado = listado.filter((m, index, self) => 
-            index === self.findIndex((t) => t.usuario_id === m.usuario_id)
-        );
+    try {
+        const res = await fetch(API_URL + '/leaderboard/' + selectedGroupId);
+        if (res.ok) {
+            let listado = await res.json();
+            
+            // Doble filtrado de seguridad en frontend
+            const listadoUnico = [];
+            const idsVistos = new Set();
+            for (const m of listado) {
+                if (!idsVistos.has(m.usuario_id)) {
+                    idsVistos.add(m.usuario_id);
+                    listadoUnico.push(m);
+                }
+            }
 
-        listado.forEach((m, index) => {
-            let trofeoIcon = '';
-            if (index === 0) trofeoIcon = ' <i class="fa-solid fa-trophy" style="color:var(--gold);" title="Campeón (Oro)"></i>';
-            if (index === 1) trofeoIcon = ' <i class="fa-solid fa-trophy" style="color:var(--silver);" title="Subcampeón (Plata)"></i>';
-            if (index === 2) trofeoIcon = ' <i class="fa-solid fa-trophy" style="color:var(--bronze);" title="Tercer Lugar (Bronce)"></i>';
+            if (listadoUnico.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--text-muted);">No hay miembros en esta liga todavía.</td></tr>`;
+                return;
+            }
 
-            tbody.innerHTML += `<tr><td>#${index + 1}</td><td><strong>${m.username}</strong>${trofeoIcon}</td><td><span class="badge">${m.rol}</span></td><td><strong>${m.puntos_acumulados} pts</strong></td></tr>`;
-        });
+            listadoUnico.forEach((m, index) => {
+                let trofeoIcon = '';
+                if (index === 0) trofeoIcon = ' <i class="fa-solid fa-trophy" style="color:var(--gold);" title="Campeón (Oro)"></i>';
+                if (index === 1) trofeoIcon = ' <i class="fa-solid fa-trophy" style="color:var(--silver);" title="Subcampeón (Plata)"></i>';
+                if (index === 2) trofeoIcon = ' <i class="fa-solid fa-trophy" style="color:var(--bronze);" title="Tercer Lugar (Bronce)"></i>';
+
+                tbody.innerHTML += `<tr><td>#${index + 1}</td><td><strong>${m.username}</strong>${trofeoIcon}</td><td><span class="badge">${m.rol}</span></td><td><strong>${m.puntos_acumulados} pts</strong></td></tr>`;
+            });
+        }
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--danger);">Error al cargar la tabla de posiciones.</td></tr>`;
     }
 }
 
