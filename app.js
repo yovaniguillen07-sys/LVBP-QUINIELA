@@ -635,7 +635,6 @@ async function renderGames() {
         if (partido.estado === 'PENDIENTE') {
             html += `<button class="${btnClase}" id="btn-pred-${partido.id}" onclick="guardarPronostico(${partido.id}, ${selectedGroupId}, ${tienePronostico})">${btnTexto}</button>`;
         } else {
-            // Botón para ver pronósticos de todos los usuarios una vez cerrado o finalizado
             html += `<button class="btn btn-secondary" style="background: #0284c7; color: #fff;" onclick="abrirModalVerPronosticosPartidos(${partido.id}, '${partido.equipo_visitante}', '${partido.equipo_local}')"><i class="fa-solid fa-users-viewfinder"></i> Ver Pronósticos</button>`;
             
             if (partido.estado === 'FINALIZADO') {
@@ -643,6 +642,7 @@ async function renderGames() {
             }
         }
 
+        // Botones de Administrador
         if (currentUser.id === 1) {
             html += `<div style="display:flex; gap:0.25rem; margin-left: 0.5rem; flex-wrap:wrap;">`;
             if (partido.estado === 'PENDIENTE') {
@@ -650,6 +650,9 @@ async function renderGames() {
             } else if (partido.estado === 'CERRADO') {
                 html += `<button class="btn btn-secondary" onclick="cambiarEstadoPartido(${partido.id}, 'PENDIENTE')">Abrir</button>
                          <button class="btn btn-secondary" onclick="abrirModalResultado(${partido.id}, '${partido.equipo_visitante}', '${partido.equipo_local}')">Resultado</button>`;
+            } else if (partido.estado === 'FINALIZADO') {
+                // AÑADIDO: Botón para REABRIR el partido y regresarlo a PENDIENTE
+                html += `<button class="btn btn-secondary" style="background:#ef4444; color:#fff;" onclick="cambiarEstadoPartido(${partido.id}, 'PENDIENTE')">Reabrir</button>`;
             }
             html += `<button class="btn btn-secondary" onclick="abrirModalEditarPartido(${partido.id}, '${partido.equipo_visitante}', '${partido.equipo_local}', '${partido.fecha_juego}', '${partido.hora}', '${partido.estadio}')"><i class="fa-solid fa-pen"></i></button>
                      <button class="btn btn-danger" onclick="eliminarPartido(${partido.id})"><i class="fa-solid fa-trash"></i></button></div>`;
@@ -660,7 +663,6 @@ async function renderGames() {
     });
 }
 
-// Función para abrir y cargar los pronósticos del partido en el modal
 async function abrirModalVerPronosticosPartidos(partidoId, visNombre, locNombre) {
     const selectGame = document.getElementById('group-select-game');
     const grupoId = selectGame ? selectGame.value : null;
