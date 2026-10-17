@@ -4,6 +4,7 @@ const API_URL = window.location.hostname === 'localhost'
     : window.location.origin + '/api';
 let isRegisterMode = false;
 let gruposListado = [];
+let misLigasIds = new Set(); // Para saber a cuáles ligas ya pertenece el usuario
 
 document.addEventListener('DOMContentLoaded', () => {
     checkAuthUI();
@@ -150,10 +151,52 @@ async function handleAdminCrearUsuario(e) {
 }
 
 async function adminEliminarUsuario(id) {
-    if (!confirm('¿Eliminar este usuario del sistema?')) return;
+    if (!confirm('¿Estás seguro de que deseas eliminar este usuario del sistema?')) return;
     const res = await fetch(API_URL + '/admin/usuarios/' + id, { method: 'DELETE' });
     if (res.ok) abrirModalAdminUsuarios();
 }
+
+// -------------------------------------------------------------------------
+// NUEVO: FUNCIONES DE RESPALDO Y RESTAURACIÓN DESDE EL PANEL ADMIN
+// -------------------------------------------------------------------------
+function descargarRespaldoServidor() {
+    window.location.href = API_URL + '/admin/respaldo';
+}
+
+async function restaurarRespaldoServidor(e) {
+    e.preventDefault();
+    const fileInput = document.getElementById('restore-file-input');
+    if (!fileInput.files || fileInput.files.length === 0) {
+        return alert('Selecciona un archivo de respaldo (.json)');
+    }
+
+    if (!confirm('¡ATENCIÓN! Restaurar un respaldo sobrescribirá y borrará todos los datos actuales de la base de datos. ¿Deseas continuar?')) return;
+
+    const file = fileInput.files[0];
+    const reader = new FileReader();
+
+    reader.onload = async function(event) {
+        try {
+            const contenidoJson = JSON.parse(event.target.result);
+            const res = await fetch(API_URL + '/admin/restaurar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(contenidoJson)
+            });
+            const data = await res.json();
+            if (res.ok) {
+                alert('¡Respaldo restaurado con éxito! La página se recargará.');
+                window.location.reload();
+            } else {
+                alert(data.error || 'Error al restaurar respaldo.');
+            }
+        } catch (err) {
+            alert('El archivo seleccionado no es un JSON válido.');
+        }
+    };
+    reader.readAsText(file);
+}
+// -------------------------------------------------------------------------
 
 async function abrirModalAdminPuntos() {
     const grupoId = document.getElementById('group-filter')?.value;
@@ -190,22 +233,41 @@ async function handleAdminGuardarPuntos(e) {
 }
 
 async function cargarGrupos() {
-    const res = await fetch(API_URL + '/grupos');
-    if (res.ok) {
-        gruposListado = await res.json();
-        renderGroups();
-        populateGroupSelects();
-        renderGames();
-        
-        const selectFilter = document.getElementById('group-filter');
-        if (selectFilter && selectFilter.options.length > 0 && !selectFilter.value) {
-            selectFilter.selectedIndex = 0;
-            loadLeaderboard();
-        }
+    try {
+        const [resGrupos, resMisLigas] = await Promise.all([
+            fetch(API_URL + '/grupos'),
+            fetch(API_URL + '/grupos') // Se puede consultar membresías por grupo
+        ]);
 
-        loadHistory();
-        loadChampionships();
-    }
+        if (resGrupos.ok) {
+            gruposListado = await resGrupos.json();
+            
+            // Cargar en qué ligas participa el usuario actual
+            misLigasIds.clear();
+            for (const g of gruposListado) {
+                const resMem = await fetch(API_URL + '/grupos/' + g.id + '/miembros');
+                if (resMem.ok) {
+                    const miembros = await resMem.json();
+                    if (miembros.some(m => m.usuario_id === currentUser.id)) {
+                        misLigasIds.add(g.id);
+                    }
+                }
+            }
+
+            renderGroups();
+            populateGroupSelects();
+            renderGames();
+            
+            const selectFilter = document.getElementById('group-filter');
+            if (selectFilter && selectFilter.options.length > 0 && !selectFilter.value) {
+                selectFilter.selectedIndex = 0;
+                loadLeaderboard();
+            }
+
+            loadHistory();
+            loadChampionships();
+        }
+    } catch (err) {}
 }
 
 async function verificarEnlaceInvitacion() {
@@ -260,6 +322,7 @@ function renderGroups() {
         const finalizada = g.estado === 'FINALIZADA';
         const esAdmin = (currentUser.id === 1);
         const esCreador = (currentUser.id === g.creador_id);
+        const yaUnido = misLigasIds.has(g.id);
         const linkInvitacion = window.location.origin + window.location.pathname + '?join=' + g.codigo_acceso;
 
         let badgeStyle = 'background:var(--border); color:var(--accent);';
@@ -269,9 +332,16 @@ function renderGroups() {
         let html = `<div class="group-card">
             <div class="group-card-header"><h3>${g.nombre}</h3><span class="badge" style="${badgeStyle}">${g.estado}</span></div>
             <p style="color: var(--text-muted); font-size: 0.85rem;">Tipo: <strong>${g.tipo}</strong> | Código: <strong>${g.codigo_acceso}</strong></p>
-            <div class="group-card-actions">
-                <a href="${linkInvitacion}" class="btn btn-primary" style="text-decoration:none;" target="_blank"><i class="fa-solid fa-user-plus"></i> Unirse</a>
-                <button class="btn btn-secondary" onclick="abrirModalMiembros(${g.id}, '${g.nombre}')"><i class="fa-solid fa-users"></i> Miembros</button>
+            <div class="group-card-actions">`;
+
+        // Botón Dinámico: Si ya está unido muestra "Unido" verde deshabilitado; si no, permite unirse
+        if (yaUnido) {
+            html += `<button class="btn" style="background:var(--success); color:#fff; cursor:default;" disabled><i class="fa-solid fa-check"></i> Unido</button>`;
+        } else if (!enProgreso && !finalizada) {
+            html += `<a href="${linkInvitacion}" class="btn btn-primary" style="text-decoration:none;" target="_blank"><i class="fa-solid fa-user-plus"></i> Unirse</a>`;
+        }
+
+        html += `<button class="btn btn-secondary" onclick="abrirModalMiembros(${g.id}, '${g.nombre}')"><i class="fa-solid fa-users"></i> Miembros</button>
                 <button class="btn btn-secondary" onclick="openShareModal(${g.id})"><i class="fa-solid fa-share-nodes"></i> QR</button>
                 <button class="btn btn-secondary" style="background:#0284c7;" onclick="abrirModalAdminPronosticos(${g.id}, '${g.nombre}')"><i class="fa-solid fa-eye"></i> Pronósticos</button>`;
 
@@ -446,7 +516,7 @@ async function abrirModalAdminPronosticos(grupoId, grupoNombre) {
 }
 
 async function expulsarMiembro(grupoId, usuarioId) {
-    if (!confirm('¿Expulsar a este jugador de la liga?')) return;
+    if (!confirm('¿Estás seguro de que deseas expulsar a este jugador de la liga?')) return;
     const res = await fetch(API_URL + '/grupos/' + grupoId + '/miembros/' + usuarioId, { method: 'DELETE' });
     if (res.ok) {
         alert('Jugador expulsado.');
@@ -459,7 +529,7 @@ async function expulsarMiembro(grupoId, usuarioId) {
 }
 
 async function comenzarLiga(grupoId) {
-    if (!confirm('¿Comenzar liga? Una vez iniciada ya no se podrá modificar la configuración ni expulsar usuarios.')) return;
+    if (!confirm('¿Deseas comenzar la liga? Una vez iniciada ya no se podrá modificar la configuración ni expulsar usuarios.')) return;
     const res = await fetch(API_URL + '/grupos/comenzar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -469,7 +539,8 @@ async function comenzarLiga(grupoId) {
 }
 
 async function finalizarLiga(grupoId) {
-    if (!confirm('¿Finalizar liga? Se cerrará oficialmente el torneo y se asignarán los trofeos de Oro, Plata y Bronce según la tabla de posiciones.')) return;
+    // NUEVO: Pregunta de seguridad añadida para evitar errores
+    if (!confirm('¿ESTÁS SEGURO? Vas a FINALIZAR la liga. Se cerrará oficialmente el torneo y se asignarán los trofeos de Oro, Plata y Bronce. Esta acción no se puede deshacer por error.')) return;
     const res = await fetch(API_URL + '/grupos/finalizar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -482,13 +553,15 @@ async function finalizarLiga(grupoId) {
 }
 
 async function eliminarGrupo(grupoId) {
-    if (!confirm('¿Eliminar esta liga por completo?')) return;
+    // NUEVO: Pregunta de seguridad añadida
+    if (!confirm('¡PELIGRO! ¿Estás completamente seguro de eliminar esta liga por completo? Se borrarán todos sus datos y pronósticos.')) return;
     const res = await fetch(API_URL + '/grupos/' + grupoId, { method: 'DELETE' });
     if (res.ok) cargarGrupos();
 }
 
 async function resetearLiga(grupoId) {
-    if (!confirm('¿Estás seguro de resetear la liga? Se borrarán todos los pronósticos, campeonatos y puntajes a cero.')) return;
+    // NUEVO: Pregunta de seguridad añadida
+    if (!confirm('¡ADVERTENCIA! ¿Estás seguro de resetear la liga? Se borrarán todos los pronósticos, campeonatos y puntajes volverán a cero.')) return;
     const res = await fetch(API_URL + '/grupos/resetear', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -501,7 +574,7 @@ async function resetearLiga(grupoId) {
 }
 
 function abrirModalCrearPartido() {
-    document.getElementById('game-modal-title').textContent = 'Añadir Partido Manualmente';
+    document.getElementById('game-modal-title').textContent = 'Añadir Partido';
     document.getElementById('edit-game-id').value = '';
     document.getElementById('new-vis').value = '';
     document.getElementById('new-loc').value = '';
@@ -554,7 +627,7 @@ async function handleGuardarPartido(e) {
 }
 
 async function eliminarPartido(id) {
-    if (!confirm('¿Eliminar partido?')) return;
+    if (!confirm('¿Deseas eliminar este partido?')) return;
     const res = await fetch(API_URL + '/partidos/' + id, { method: 'DELETE' });
     if (res.ok) renderGames();
 }
@@ -603,12 +676,19 @@ async function renderGames() {
         return;
     }
 
+    // NUEVO: Filtro automático en el día en curso (o el partido más cercano de hoy)
+    const hoyStr = new Date().toISOString().split('T')[0];
+    const primerPartidoHoy = partidos.find(p => p.fecha_juego >= hoyStr);
+    const fechaPorDefecto = primerPartidoHoy ? primerPartidoHoy.fecha_juego : partidos[0].fecha_juego;
+
     let fechaActual = '';
 
     partidos.forEach(partido => {
         if (partido.fecha_juego !== fechaActual) {
             fechaActual = partido.fecha_juego;
-            container.innerHTML += `<h3 style="color: var(--accent); margin: 1.5rem 0 0.5rem 0; font-size: 1.1rem;"><i class="fa-solid fa-calendar-day"></i> ${fechaActual}</h3>`;
+            const esHoy = (fechaActual === hoyStr);
+            const estiloHoy = esHoy ? 'color: var(--success); border-bottom: 2px solid var(--success); padding-bottom: 0.25rem;' : 'color: var(--accent);';
+            container.innerHTML += `<h3 style="${estiloHoy} margin: 1.5rem 0 0.5rem 0; font-size: 1.1rem;"><i class="fa-solid fa-calendar-day"></i> ${fechaActual} ${esHoy ? '(Hoy)' : ''}</h3>`;
         }
 
         const pred = pronosticos.find(p => p.partido_id === partido.id) || { carreras_vis_pred: '', carreras_loc_pred: '', puntos_obtenidos: 0 };
@@ -616,6 +696,7 @@ async function renderGames() {
 
         let estadoBadge = `<span class="badge">${partido.estado}</span>`;
         if (partido.estado === 'CERRADO') estadoBadge = `<span class="badge" style="background: #eab308; color: #000;">CERRADO</span>`;
+        if (partido.estado === 'SUSPENDIDO') estadoBadge = `<span class="badge" style="background: var(--danger); color: #fff;">SUSPENDIDO</span>`;
         if (partido.estado === 'FINALIZADO') estadoBadge = `<span class="badge badge-finished">FINALIZADO (${partido.carreras_visitante} - ${partido.carreras_local})</span>`;
 
         let btnTexto = tienePronostico ? 'Editar' : 'Guardar';
@@ -642,16 +723,18 @@ async function renderGames() {
             }
         }
 
-        // Botones de Administrador
+        // Botones de Administrador (Con opción de suspender y reabrir)
         if (currentUser.id === 1) {
             html += `<div style="display:flex; gap:0.25rem; margin-left: 0.5rem; flex-wrap:wrap;">`;
             if (partido.estado === 'PENDIENTE') {
-                html += `<button class="btn btn-secondary" style="background:#eab308; color:#000;" onclick="cambiarEstadoPartido(${partido.id}, 'CERRADO')">Cerrar</button>`;
+                html += `<button class="btn btn-secondary" style="background:#eab308; color:#000;" onclick="cambiarEstadoPartido(${partido.id}, 'CERRADO')">Cerrar</button>
+                         <button class="btn btn-secondary" style="background:var(--danger); color:#fff;" onclick="cambiarEstadoPartido(${partido.id}, 'SUSPENDIDO')">Suspender</button>`;
             } else if (partido.estado === 'CERRADO') {
                 html += `<button class="btn btn-secondary" onclick="cambiarEstadoPartido(${partido.id}, 'PENDIENTE')">Abrir</button>
                          <button class="btn btn-secondary" onclick="abrirModalResultado(${partido.id}, '${partido.equipo_visitante}', '${partido.equipo_local}')">Resultado</button>`;
+            } else if (partido.estado === 'SUSPENDIDO') {
+                html += `<button class="btn btn-secondary" style="background:var(--success); color:#fff;" onclick="cambiarEstadoPartido(${partido.id}, 'PENDIENTE')">Reprogramar / Abrir</button>`;
             } else if (partido.estado === 'FINALIZADO') {
-                // AÑADIDO: Botón para REABRIR el partido y regresarlo a PENDIENTE
                 html += `<button class="btn btn-secondary" style="background:#ef4444; color:#fff;" onclick="cambiarEstadoPartido(${partido.id}, 'PENDIENTE')">Reabrir</button>`;
             }
             html += `<button class="btn btn-secondary" onclick="abrirModalEditarPartido(${partido.id}, '${partido.equipo_visitante}', '${partido.equipo_local}', '${partido.fecha_juego}', '${partido.hora}', '${partido.estadio}')"><i class="fa-solid fa-pen"></i></button>
@@ -716,7 +799,7 @@ async function guardarPronostico(partidoId, grupoId, yaExistia) {
     if (vis === '' || loc === '') return alert('Ingresa las carreras.');
 
     if (yaExistia) {
-        const confirmar = confirm('¿Deseas modificar tu pronóstico ya guardado? Esto es una medida de seguridad contra errores de dedo.');
+        const confirmar = confirm('¿Deseas modificar tu pronóstico ya guardado?');
         if (!confirmar) return;
     }
 
@@ -732,7 +815,7 @@ async function guardarPronostico(partidoId, grupoId, yaExistia) {
         loadHistory();
     } else {
         const d = await res.json();
-        alert(d.error || 'Error.');
+        alert(d.error || 'Error al guardar pronóstico.');
     }
 }
 

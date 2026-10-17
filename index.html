@@ -172,7 +172,7 @@
 
             <!-- TAB 6: REGLAS -->
             <div id="rules-tab" class="tab-content">
-                <div class="section-header"><h2>Reglas de Puntuación</h2></div>
+                <div class="section-header"><h2>Reglas de Puntuación & Desempate</h2></div>
                 <div class="rules-container">
                     <div class="rule-card">
                         <div class="rule-header"><span class="rule-points">6 PTS</span><h3>Acierto Directo / Pleno</h3></div>
@@ -186,9 +186,14 @@
                         <div class="rule-header"><span class="rule-points">2 PTS</span><h3>Acierto de Carreras Totales</h3></div>
                         <p>La suma total de carreras coincide con la real sin acertar el ganador.</p>
                     </div>
+                    <!-- NUEVO: Aclaración de desempate solicitada -->
+                    <div class="rule-card" style="border-color: var(--success);">
+                        <div class="rule-header"><span class="rule-points" style="background:var(--success); color:#fff;">CRITERIO</span><h3>Regla de Desempate en Liga</h3></div>
+                        <p>En caso de empate en puntos totales al finalizar la liga, el jugador con <strong>más aciertos directos (plenos de 6 pts)</strong> será el ganador absoluto.</p>
+                    </div>
                     <div class="rule-card" style="border-color: var(--accent);">
                         <div class="rule-header"><span class="rule-points" style="background:var(--card-bg); color:var(--accent); border:1px solid var(--accent);">NOTA</span><h3>Límite de Modificación</h3></div>
-                        <p>Nota: El pronóstico del partido podrá ser modificado hasta 1 hora antes de la hora de inicio del juego.</p>
+                        <p>Nota: El pronóstico del partido podrá ser modificado hasta 30 minutos antes de la hora de inicio del juego.</p>
                     </div>
                 </div>
             </div>
@@ -221,7 +226,6 @@
         </div>
     </div>
 
-    <!-- MODAL NUEVO: Ver Pronósticos de Partido Cerrado / Finalizado -->
     <div id="ver-pronosticos-modal" class="modal">
         <div class="modal-content" style="max-width: 500px;">
             <span class="close-btn" onclick="closeModal('ver-pronosticos-modal')">&times;</span>
@@ -256,9 +260,22 @@
     </div>
 
     <div id="admin-users-modal" class="modal">
-        <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-content" style="max-width: 650px;">
             <span class="close-btn" onclick="closeModal('admin-users-modal')">&times;</span>
-            <h3>Gestión General de Usuarios</h3>
+            <h3>Panel de Administración General</h3>
+            
+            <!-- NUEVO: Sección de respaldos y restauraciones en el panel admin -->
+            <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); padding: 1rem; border-radius: 6px; margin: 1rem 0;">
+                <h4 style="margin-bottom: 0.5rem; color: var(--accent);"><i class="fa-solid fa-database"></i> Respaldos del Servidor</h4>
+                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
+                    <button type="button" class="btn btn-primary" onclick="descargarRespaldoServidor()"><i class="fa-solid fa-download"></i> Descargar Respaldo (.json)</button>
+                </div>
+                <form onsubmit="restaurarRespaldoServidor(event)" style="margin-top: 0.75rem; display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
+                    <input type="file" id="restore-file-input" accept=".json" required style="font-size: 0.85rem; color: var(--text);">
+                    <button type="submit" class="btn btn-secondary" style="background: var(--danger);"><i class="fa-solid fa-upload"></i> Subir y Restaurar</button>
+                </form>
+            </div>
+
             <div style="margin: 1rem 0;">
                 <h4>Crear Nuevo Usuario</h4>
                 <form onsubmit="handleAdminCrearUsuario(event)" style="display: flex; gap: 0.5rem; margin-top: 0.5rem; flex-wrap: wrap;">
@@ -270,7 +287,7 @@
             </div>
             <hr style="border-color: var(--border); margin: 1rem 0;">
             <h4>Usuarios Registrados</h4>
-            <div class="table-container" style="max-height: 250px; overflow-y: auto; margin-top: 0.5rem;">
+            <div class="table-container" style="max-height: 200px; overflow-y: auto; margin-top: 0.5rem;">
                 <table class="leaderboard-table">
                     <thead><tr><th>Usuario</th><th>Email</th><th>Contraseña</th><th>Acción</th></tr></thead>
                     <tbody id="admin-users-tbody"></tbody>
@@ -326,15 +343,38 @@
         </div>
     </div>
 
+    <!-- NUEVO: Modal de creación/edición de partidos con datalist para selección rápida y edición libre de equipos y estadios -->
     <div id="create-game-modal" class="modal">
         <div class="modal-content">
             <span class="close-btn" onclick="closeModal('create-game-modal')">&times;</span>
-            <h3 id="game-modal-title">Añadir Partido Manualmente</h3>
+            <h3 id="game-modal-title">Añadir Partido</h3>
             <form onsubmit="handleGuardarPartido(event)">
                 <input type="hidden" id="edit-game-id">
-                <div class="form-group"><label>Visitante</label><input type="text" id="new-vis" required placeholder="Ej. Leones"></div>
-                <div class="form-group"><label>Local</label><input type="text" id="new-loc" required placeholder="Ej. Águilas"></div>
+                
+                <div class="form-group">
+                    <label>Equipo Visitante</label>
+                    <input type="text" id="new-vis" list="lvbp-teams" required placeholder="Selecciona o escribe el visitante">
+                </div>
+                
+                <div class="form-group">
+                    <label>Equipo Local</label>
+                    <input type="text" id="new-loc" list="lvbp-teams" required placeholder="Selecciona o escribe el local">
+                </div>
+
+                <!-- Listado oficial de equipos LVBP sugeridos -->
+                <datalist id="lvbp-teams">
+                    <option value="Leones del Caracas">
+                    <option value="Navegantes del Magallanes">
+                    <option value="Cardenales de Lara">
+                    <option value="Tiburones de La Guaira">
+                    <option value="Bravos de Margarita">
+                    <option value="Tigres de Aragua">
+                    <option value="Caribes de Anzoátegui">
+                    <option value="Águilas del Zulia">
+                </datalist>
+
                 <div class="form-group"><label>Fecha del Partido</label><input type="date" id="new-fecha" required style="padding:0.75rem; background:var(--bg-color); border:1px solid var(--border); color:var(--text); border-radius:6px; width:100%;"></div>
+                
                 <div class="form-group">
                     <label>Hora del Partido</label>
                     <div style="display: flex; gap: 0.5rem;">
@@ -345,7 +385,25 @@
                         </select>
                     </div>
                 </div>
-                <div class="form-group"><label>Estadio</label><input type="text" id="new-estadio" required placeholder="Ej. Estadio Monumental"></div>
+
+                <div class="form-group">
+                    <label>Estadio</label>
+                    <input type="text" id="new-estadio" list="lvbp-stadiums" required placeholder="Selecciona o escribe el estadio">
+                </div>
+
+                <!-- Listado oficial de estadios LVBP sugeridos -->
+                <datalist id="lvbp-stadiums">
+                    <option value="Estadio Monumental Simón Bolívar">
+                    <option value="Estadio Universitario de Caracas">
+                    <option value="Estadio José Bernardo Pérez">
+                    <option value="Estadio Antonio Herrera Gutiérrez">
+                    <option value="Estadio Jorge Luis García Carneiro">
+                    <option value="Estadio Alfonso Carrasquel">
+                    <option value="Estadio Luis Aparicio El Grande">
+                    <option value="Estadio José Pérez Colmenares">
+                    <option value="Estadio Nueva Esparta">
+                </datalist>
+
                 <button type="submit" class="btn btn-primary btn-block">Guardar Partido</button>
             </form>
         </div>
