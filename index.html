@@ -15,6 +15,11 @@
 </head>
 <body>
 
+    <!-- NUEVO: Banner de aviso cuando el servidor está despertando en la nube -->
+    <div id="server-status-banner" style="display: none; background: #eab308; color: #000; text-align: center; padding: 0.5rem; font-size: 0.85rem; font-weight: bold; position: fixed; top: 0; left: 0; width: 100%; z-index: 4000;">
+        <i class="fa-solid fa-spinner fa-spin"></i> El servidor en la nube está despertando (modo reposo). Por favor, espera unos segundos...
+    </div>
+
     <!-- Overlay de Autenticación -->
     <div id="auth-overlay" class="modal" style="display: flex;">
         <div class="modal-content">
@@ -42,7 +47,7 @@
     </div>
 
     <!-- Header Navigation -->
-    <header class="navbar">
+    <header class="navbar" style="margin-top: var(--banner-margin, 0px);">
         <div class="logo">
             <i class="fa-solid fa-baseball-bat-ball"></i>
             <span>Quiniela <strong>LVBP</strong></span>
@@ -186,7 +191,6 @@
                         <div class="rule-header"><span class="rule-points">2 PTS</span><h3>Acierto de Carreras Totales</h3></div>
                         <p>La suma total de carreras coincide con la real sin acertar el ganador.</p>
                     </div>
-                    <!-- NUEVO: Aclaración de desempate solicitada -->
                     <div class="rule-card" style="border-color: var(--success);">
                         <div class="rule-header"><span class="rule-points" style="background:var(--success); color:#fff;">CRITERIO</span><h3>Regla de Desempate en Liga</h3></div>
                         <p>En caso de empate en puntos totales al finalizar la liga, el jugador con <strong>más aciertos directos (plenos de 6 pts)</strong> será el ganador absoluto.</p>
@@ -264,7 +268,6 @@
             <span class="close-btn" onclick="closeModal('admin-users-modal')">&times;</span>
             <h3>Panel de Administración General</h3>
             
-            <!-- NUEVO: Sección de respaldos y restauraciones en el panel admin -->
             <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); padding: 1rem; border-radius: 6px; margin: 1rem 0;">
                 <h4 style="margin-bottom: 0.5rem; color: var(--accent);"><i class="fa-solid fa-database"></i> Respaldos del Servidor</h4>
                 <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
@@ -343,7 +346,6 @@
         </div>
     </div>
 
-    <!-- NUEVO: Modal de creación/edición de partidos con datalist para selección rápida y edición libre de equipos y estadios -->
     <div id="create-game-modal" class="modal">
         <div class="modal-content">
             <span class="close-btn" onclick="closeModal('create-game-modal')">&times;</span>
@@ -361,7 +363,6 @@
                     <input type="text" id="new-loc" list="lvbp-teams" required placeholder="Selecciona o escribe el local">
                 </div>
 
-                <!-- Listado oficial de equipos LVBP sugeridos -->
                 <datalist id="lvbp-teams">
                     <option value="Leones del Caracas">
                     <option value="Navegantes del Magallanes">
@@ -391,7 +392,6 @@
                     <input type="text" id="new-estadio" list="lvbp-stadiums" required placeholder="Selecciona o escribe el estadio">
                 </div>
 
-                <!-- Listado oficial de estadios LVBP sugeridos -->
                 <datalist id="lvbp-stadiums">
                     <option value="Estadio Monumental Simón Bolívar">
                     <option value="Estadio Universitario de Caracas">

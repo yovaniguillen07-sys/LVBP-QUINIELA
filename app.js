@@ -4,15 +4,39 @@ const API_URL = window.location.hostname === 'localhost'
     : window.location.origin + '/api';
 let isRegisterMode = false;
 let gruposListado = [];
-let misLigasIds = new Set(); // Para saber a cuáles ligas ya pertenece el usuario
+let misLigasIds = new Set();
 
 document.addEventListener('DOMContentLoaded', () => {
+    verificarEstadoServidor(); // NUEVO: Chequea si el servidor está en reposo al abrir la web
     checkAuthUI();
     if (currentUser) {
         cargarGrupos();
         verificarEnlaceInvitacion();
     }
 });
+
+// NUEVO: Función que hace un ping inicial y muestra aviso si tarda en responder (servidor en reposo)
+async function verificarEstadoServidor() {
+    const banner = document.getElementById('server-status-banner');
+    if (!banner) return;
+
+    // Temporizador: si en 1.5 segundos no responde, asumimos que está despertando de Render
+    const timer = setTimeout(() => {
+        banner.style.display = 'block';
+        document.body.style.setProperty('--banner-margin', '32px');
+    }, 1500);
+
+    try {
+        await fetch(API_URL + '/grupos', { method: 'GET' });
+        clearTimeout(timer);
+        banner.style.display = 'none';
+        document.body.style.setProperty('--banner-margin', '0px');
+    } catch (err) {
+        clearTimeout(timer);
+        banner.style.display = 'none';
+        document.body.style.setProperty('--banner-margin', '0px');
+    }
+}
 
 function checkAuthUI() {
     const overlay = document.getElementById('auth-overlay');
@@ -156,9 +180,6 @@ async function adminEliminarUsuario(id) {
     if (res.ok) abrirModalAdminUsuarios();
 }
 
-// -------------------------------------------------------------------------
-// NUEVO: FUNCIONES DE RESPALDO Y RESTAURACIÓN DESDE EL PANEL ADMIN
-// -------------------------------------------------------------------------
 function descargarRespaldoServidor() {
     window.location.href = API_URL + '/admin/respaldo';
 }
@@ -196,7 +217,6 @@ async function restaurarRespaldoServidor(e) {
     };
     reader.readAsText(file);
 }
-// -------------------------------------------------------------------------
 
 async function abrirModalAdminPuntos() {
     const grupoId = document.getElementById('group-filter')?.value;
@@ -234,15 +254,10 @@ async function handleAdminGuardarPuntos(e) {
 
 async function cargarGrupos() {
     try {
-        const [resGrupos, resMisLigas] = await Promise.all([
-            fetch(API_URL + '/grupos'),
-            fetch(API_URL + '/grupos') // Se puede consultar membresías por grupo
-        ]);
-
+        const resGrupos = await fetch(API_URL + '/grupos');
         if (resGrupos.ok) {
             gruposListado = await resGrupos.json();
             
-            // Cargar en qué ligas participa el usuario actual
             misLigasIds.clear();
             for (const g of gruposListado) {
                 const resMem = await fetch(API_URL + '/grupos/' + g.id + '/miembros');
@@ -334,7 +349,6 @@ function renderGroups() {
             <p style="color: var(--text-muted); font-size: 0.85rem;">Tipo: <strong>${g.tipo}</strong> | Código: <strong>${g.codigo_acceso}</strong></p>
             <div class="group-card-actions">`;
 
-        // Botón Dinámico: Si ya está unido muestra "Unido" verde deshabilitado; si no, permite unirse
         if (yaUnido) {
             html += `<button class="btn" style="background:var(--success); color:#fff; cursor:default;" disabled><i class="fa-solid fa-check"></i> Unido</button>`;
         } else if (!enProgreso && !finalizada) {
@@ -539,8 +553,7 @@ async function comenzarLiga(grupoId) {
 }
 
 async function finalizarLiga(grupoId) {
-    // NUEVO: Pregunta de seguridad añadida para evitar errores
-    if (!confirm('¿ESTÁS SEGURO? Vas a FINALIZAR la liga. Se cerrará oficialmente el torneo y se asignarán los trofeos de Oro, Plata y Bronce. Esta acción no se puede deshacer por error.')) return;
+    if (!confirm('¿ESTÁS SEGURO? Vas a FINALIZAR la liga. Se cerrará oficialmente el torneo y se asignarán los trofeos de Oro, Plata y Bronce.')) return;
     const res = await fetch(API_URL + '/grupos/finalizar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -553,14 +566,12 @@ async function finalizarLiga(grupoId) {
 }
 
 async function eliminarGrupo(grupoId) {
-    // NUEVO: Pregunta de seguridad añadida
     if (!confirm('¡PELIGRO! ¿Estás completamente seguro de eliminar esta liga por completo? Se borrarán todos sus datos y pronósticos.')) return;
     const res = await fetch(API_URL + '/grupos/' + grupoId, { method: 'DELETE' });
     if (res.ok) cargarGrupos();
 }
 
 async function resetearLiga(grupoId) {
-    // NUEVO: Pregunta de seguridad añadida
     if (!confirm('¡ADVERTENCIA! ¿Estás seguro de resetear la liga? Se borrarán todos los pronósticos, campeonatos y puntajes volverán a cero.')) return;
     const res = await fetch(API_URL + '/grupos/resetear', {
         method: 'POST',
@@ -676,11 +687,7 @@ async function renderGames() {
         return;
     }
 
-    // NUEVO: Filtro automático en el día en curso (o el partido más cercano de hoy)
     const hoyStr = new Date().toISOString().split('T')[0];
-    const primerPartidoHoy = partidos.find(p => p.fecha_juego >= hoyStr);
-    const fechaPorDefecto = primerPartidoHoy ? primerPartidoHoy.fecha_juego : partidos[0].fecha_juego;
-
     let fechaActual = '';
 
     partidos.forEach(partido => {
@@ -723,7 +730,6 @@ async function renderGames() {
             }
         }
 
-        // Botones de Administrador (Con opción de suspender y reabrir)
         if (currentUser.id === 1) {
             html += `<div style="display:flex; gap:0.25rem; margin-left: 0.5rem; flex-wrap:wrap;">`;
             if (partido.estado === 'PENDIENTE') {
