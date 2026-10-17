@@ -15,7 +15,7 @@
 </head>
 <body>
 
-    <!-- NUEVO: Banner de aviso cuando el servidor está despertando en la nube -->
+    <!-- Banner de aviso cuando el servidor está despertando en la nube -->
     <div id="server-status-banner" style="display: none; background: #eab308; color: #000; text-align: center; padding: 0.5rem; font-size: 0.85rem; font-weight: bold; position: fixed; top: 0; left: 0; width: 100%; z-index: 4000;">
         <i class="fa-solid fa-spinner fa-spin"></i> El servidor en la nube está despertando (modo reposo). Por favor, espera unos segundos...
     </div>
@@ -101,8 +101,12 @@
             <div id="games-tab" class="tab-content">
                 <div class="section-header">
                     <h2>Jornada LVBP & Pronósticos</h2>
-                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
                         <select id="group-select-game" onchange="renderGames()"></select>
+                        <!-- NUEVO: Botón para enviar recordatorio a WhatsApp -->
+                        <button class="btn" style="background: #25d366; color: #fff;" onclick="enviarRecordatorioWhatsApp()">
+                            <i class="fa-brands fa-whatsapp"></i> Recordar a WhatsApp
+                        </button>
                         <button id="btn-nuevo-partido" class="btn btn-primary" style="display: none;" onclick="abrirModalCrearPartido()">
                             <i class="fa-solid fa-plus"></i> Añadir Partido
                         </button>

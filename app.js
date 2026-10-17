@@ -685,14 +685,12 @@ async function renderGames() {
         return;
     }
 
-    // CORREGIDO: Obtener la fecha local real en formato YYYY-MM-DD usando la hora local del dispositivo
     const d = new Date();
     const anio = d.getFullYear();
     const mes = String(d.getMonth() + 1).padStart(2, '0');
     const dia = String(d.getDate()).padStart(2, '0');
     const hoyStr = `${anio}-${mes}-${dia}`;
 
-    // NUEVO: Ordenar los partidos dando prioridad absoluta a la fecha de hoy (los de hoy van primero)
     partidos.sort((a, b) => {
         if (a.fecha_juego === hoyStr && b.fecha_juego !== hoyStr) return -1;
         if (a.fecha_juego !== hoyStr && b.fecha_juego === hoyStr) return 1;
@@ -761,6 +759,26 @@ async function renderGames() {
         html += `</div></div>`;
         container.innerHTML += html;
     });
+}
+
+// NUEVO: Función para enviar recordatorio a WhatsApp con el link de la liga seleccionada
+function enviarRecordatorioWhatsApp() {
+    const selectGame = document.getElementById('group-select-game');
+    const grupoId = selectGame ? selectGame.value : null;
+    
+    if (!grupoId) {
+        return alert('Selecciona una liga primero para enviar el recordatorio.');
+    }
+
+    const grupo = gruposListado.find(g => g.id == grupoId);
+    const nombreLiga = grupo ? grupo.nombre : 'la Quiniela';
+    const codigoLiga = grupo ? grupo.codigo_acceso : '';
+    const linkInvitacion = window.location.origin + window.location.pathname + '?join=' + codigoLiga;
+
+    const textoMensaje = `⚾🔥 *¡ATENCIÓN EQUIPO!* 🔥⚾\n\nYa están disponibles los partidos de hoy en la Quiniela *${nombreLiga}*. 🏟️\n\n¡No olvides entrar a registrar tus pronósticos antes de que se cierren los juegos! ⏳✍️\n\n🔗 Únete o entra directo aquí:\n${linkInvitacion}`;
+
+    const urlWhatsApp = `https://api.whatsapp.com/send?text=${encodeURIComponent(textoMensaje)}`;
+    window.open(urlWhatsApp, '_blank');
 }
 
 async function abrirModalVerPronosticosPartidos(partidoId, visNombre, locNombre) {
