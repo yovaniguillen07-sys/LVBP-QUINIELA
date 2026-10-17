@@ -7,7 +7,7 @@ let gruposListado = [];
 let misLigasIds = new Set();
 
 document.addEventListener('DOMContentLoaded', () => {
-    verificarEstadoServidor(); // NUEVO: Chequea si el servidor está en reposo al abrir la web
+    verificarEstadoServidor();
     checkAuthUI();
     if (currentUser) {
         cargarGrupos();
@@ -15,12 +15,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// NUEVO: Función que hace un ping inicial y muestra aviso si tarda en responder (servidor en reposo)
 async function verificarEstadoServidor() {
     const banner = document.getElementById('server-status-banner');
     if (!banner) return;
 
-    // Temporizador: si en 1.5 segundos no responde, asumimos que está despertando de Render
     const timer = setTimeout(() => {
         banner.style.display = 'block';
         document.body.style.setProperty('--banner-margin', '32px');
@@ -687,7 +685,20 @@ async function renderGames() {
         return;
     }
 
-    const hoyStr = new Date().toISOString().split('T')[0];
+    // CORREGIDO: Obtener la fecha local real en formato YYYY-MM-DD usando la hora local del dispositivo
+    const d = new Date();
+    const anio = d.getFullYear();
+    const mes = String(d.getMonth() + 1).padStart(2, '0');
+    const dia = String(d.getDate()).padStart(2, '0');
+    const hoyStr = `${anio}-${mes}-${dia}`;
+
+    // NUEVO: Ordenar los partidos dando prioridad absoluta a la fecha de hoy (los de hoy van primero)
+    partidos.sort((a, b) => {
+        if (a.fecha_juego === hoyStr && b.fecha_juego !== hoyStr) return -1;
+        if (a.fecha_juego !== hoyStr && b.fecha_juego === hoyStr) return 1;
+        return a.fecha_juego.localeCompare(b.fecha_juego) || a.id - b.id;
+    });
+
     let fechaActual = '';
 
     partidos.forEach(partido => {
