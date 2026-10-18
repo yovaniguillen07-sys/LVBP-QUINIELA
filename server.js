@@ -24,7 +24,6 @@ const EQUIPOS_LVBP_OFICIALES = [
     "Navegantes del Magallanes"
 ];
 
-// Función para normalizar nombres y evitar duplicados por tildes o mayúsculas
 function normalizarNombreEquipo(nombre) {
     if (!nombre) return '';
     const n = nombre.trim().toLowerCase();
@@ -151,7 +150,7 @@ app.post('/api/admin/restaurar', async (req, res) => {
 
         for (const p of data.partidos) {
             await client.query(
-                'INSERT INTO partidos (id, external_id, equipo_visitante, equipo_local, fecha_juego, hora, estadio, estado, carreras_visitante, carreras_local) VALUES ($1, $2, $3, $4, $5, $6, \$7, \$8, \$9, \$10)',
+                'INSERT INTO partidos (id, external_id, equipo_visitante, equipo_local, fecha_juego, hora, estadio, estado, carreras_visitante, carreras_local) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, \$9, \$10)',
                 [p.id, p.external_id, p.equipo_visitante, p.equipo_local, p.fecha_juego, p.hora, p.estadio, p.estado, p.carreras_visitante, p.carreras_local]
             );
         }
@@ -191,7 +190,7 @@ app.post('/api/admin/restaurar', async (req, res) => {
     }
 });
 
-// RUTAS STANDINGS OFICIALES LVBP
+// RUTAS STANDINGS: BASE MANUAL + CÁLCULO AUTOMÁTICO DE PARTIDOS NUEVOS
 app.get('/api/standings/base', async (req, res) => {
     try {
         const result = await pool.query('SELECT * FROM standings_base ORDER BY equipo ASC');
@@ -230,12 +229,11 @@ app.get('/api/standings', async (req, res) => {
 
         const stats = {};
 
-        // Inicializar estrictamente con los 8 equipos oficiales
+        // 1. Inicializar con los 8 equipos oficiales y sus números base por default
         EQUIPOS_LVBP_OFICIALES.forEach(eq => {
             stats[eq] = { equipo: eq, jg: 0, jp: 0, ca: 0, cp: 0 };
         });
 
-        // Sumar la base manual configurada
         bases.forEach(b => {
             const eqNorm = normalizarNombreEquipo(b.equipo);
             if (stats[eqNorm]) {
@@ -246,7 +244,7 @@ app.get('/api/standings', async (req, res) => {
             }
         });
 
-        // Sumar partidos finalizados de la quiniela
+        // 2. Sumar automáticamente los partidos finalizados cargados en la quiniela
         partidos.forEach(p => {
             const vis = normalizarNombreEquipo(p.equipo_visitante);
             const loc = normalizarNombreEquipo(p.equipo_local);
