@@ -55,7 +55,6 @@
         <div class="user-profile" style="display: flex; align-items: center; gap: 0.3rem; flex-wrap: wrap;">
             <div id="user-avatar-container" style="display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; border-radius:50%; background:var(--primary); color:#fff; font-weight:bold; font-size:0.85rem;"></div>
             <span id="user-display-name">Invitado</span>
-            <!-- NUEVO: Botón visible para Activar Notificaciones -->
             <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem; background: #0284c7; color: #fff;" onclick="solicitarPermisoNotificaciones()" title="Activar notificaciones push">
                 <i class="fa-solid fa-bell"></i> Alertas
             </button>
@@ -73,6 +72,9 @@
             </button>
             <button class="nav-btn" onclick="switchTab('games-tab')">
                 <i class="fa-solid fa-calendar-days"></i> Partidos & Pronósticos
+            </button>
+            <button class="nav-btn" onclick="switchTab('standings-tab')" onclick="loadStandings()">
+                <i class="fa-solid fa-table-list"></i> Posiciones LVBP
             </button>
             <button class="nav-btn" onclick="switchTab('leaderboard-tab')">
                 <i class="fa-solid fa-trophy"></i> Tabla de Posiciones
@@ -116,6 +118,34 @@
                     </div>
                 </div>
                 <div class="games-list" id="games-container"></div>
+            </div>
+
+            <!-- NUEVA TAB: POSICIONES LVBP -->
+            <div id="standings-tab" class="tab-content">
+                <div class="section-header">
+                    <h2>Tabla de Posiciones - Temporada Regular LVBP</h2>
+                    <button id="btn-admin-standings" class="btn btn-secondary" style="display: none; background: var(--accent); color: #000;" onclick="abrirModalAdminStandings()">
+                        <i class="fa-solid fa-sliders"></i> Ajustar Base Manual
+                    </button>
+                </div>
+                <div class="table-container">
+                    <table class="leaderboard-table" style="font-size: 0.9rem;">
+                        <thead>
+                            <tr>
+                                <th style="text-align: left;">Equipo</th>
+                                <th>JJ</th>
+                                <th>JG</th>
+                                <th>JP</th>
+                                <th>AVE</th>
+                                <th>DIF</th>
+                                <th>CA</th>
+                                <th>CP</th>
+                                <th>DIF-C</th>
+                            </tr>
+                        </thead>
+                        <tbody id="standings-body"></tbody>
+                    </table>
+                </div>
             </div>
 
             <!-- TAB 3: LEADERBOARD -->
@@ -211,7 +241,20 @@
         </section>
     </main>
 
-    <!-- Modales -->
+    <!-- Modal de Ajuste Admin de Standings -->
+    <div id="admin-standings-modal" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <span class="close-btn" onclick="closeModal('admin-standings-modal')">&times;</span>
+            <h3>Ajuste Manual de Base (Standings LVBP)</h3>
+            <p class="subtitle" style="margin-bottom: 1rem; font-size: 0.85rem;">Ingresa aquí los Juegos Ganados, Perdidos, Carreras Anotadas y Permitidas acumuladas hasta hoy para cada equipo.</p>
+            <form onsubmit="handleGuardarStandingsBase(event)">
+                <div id="admin-standings-inputs" style="max-height: 350px; overflow-y: auto; margin-bottom: 1rem; display: flex; flex-direction: column; gap: 0.75rem;"></div>
+                <button type="submit" class="btn btn-primary btn-block">Guardar Ajustes Base</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Otros Modales -->
     <div id="join-group-modal" class="modal">
         <div class="modal-content">
             <span class="close-btn" onclick="closeModal('join-group-modal')">&times;</span>

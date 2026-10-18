@@ -9,6 +9,7 @@ let misLigasIds = new Set();
 document.addEventListener('DOMContentLoaded', () => {
     verificarEstadoServidor();
     checkAuthUI();
+    loadStandings();
     if (currentUser) {
         cargarGrupos();
         verificarEnlaceInvitacion();
@@ -43,6 +44,7 @@ function checkAuthUI() {
     const btnNuevoPartido = document.getElementById('btn-nuevo-partido');
     const btnAdminPanel = document.getElementById('btn-admin-panel');
     const btnAdminPuntos = document.getElementById('btn-admin-puntos');
+    const btnAdminStandings = document.getElementById('btn-admin-standings');
 
     if (currentUser) {
         if (overlay) overlay.style.display = 'none';
@@ -55,6 +57,7 @@ function checkAuthUI() {
             if (btnNuevoPartido) btnNuevoPartido.style.display = 'inline-flex';
             if (btnAdminPanel) btnAdminPanel.style.display = 'inline-flex';
             if (btnAdminPuntos) btnAdminPuntos.style.display = 'inline-flex';
+            if (btnAdminStandings) btnAdminStandings.style.display = 'inline-flex';
         }
     } else {
         if (overlay) overlay.style.display = 'flex';
@@ -247,6 +250,110 @@ async function handleAdminGuardarPuntos(e) {
         closeModal('admin-puntos-modal');
         loadLeaderboard();
         loadHistory();
+    }
+}
+
+// FUNCIONES PARA STANDINGS LVBP & AJUSTE MANUAL
+async function loadStandings() {
+    const tbody = document.getElementById('standings-body');
+    if (!tbody) return;
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: var(--text-muted);">Cargando posiciones...</td></tr>`;
+
+    try {
+        const res = await fetch(API_URL + '/standings');
+        if (res.ok) {
+            const data = await res.json();
+            tbody.innerHTML = '';
+            if (data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: var(--text-muted);">No hay equipos registrados.</td></tr>`;
+                return;
+            }
+
+            data.forEach((eq, index) => {
+                const diffC = eq.ca - eq.cp;
+                const diffCStr = diffC > 0 ? `+${diffC}` : diffC;
+                const aveStr = Number(eq.ave).toFixed(3).replace('0.', '.');
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td style="text-align: left; font-weight: bold;">${index + 1}. ${eq.equipo}</td>
+                        <td>${eq.jj}</td>
+                        <td>${eq.jg}</td>
+                        <td>${eq.jp}</td>
+                        <td><strong>${aveStr}</strong></td>
+                        <td>${eq.dif}</td>
+                        <td>${eq.ca}</td>
+                        <td>${eq.cp}</td>
+                        <td>${diffCStr}</td>
+                    </tr>
+                `;
+            });
+        }
+    } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: var(--danger);">Error al cargar standings.</td></tr>`;
+    }
+}
+
+async function abrirModalAdminStandings() {
+    openModal('admin-standings-modal');
+    const container = document.getElementById('admin-standings-inputs');
+    container.innerHTML = 'Cargando...';
+
+    try {
+        const res = await fetch(API_URL + '/standings/base');
+        if (res.ok) {
+            const data = await res.json();
+            container.innerHTML = '';
+            data.forEach(item => {
+                container.innerHTML += `
+                    <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); padding: 0.75rem; border-radius: 6px;">
+                        <strong style="color: var(--accent); display: block; margin-bottom: 0.5rem;">${item.equipo}</strong>
+                        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem;">
+                            <div><label style="font-size:0.75rem;">JG Base</label><input type="number" id="base_jg_${item.equipo}" value="${item.jg_base}" min="0" style="width:100%; padding:0.25rem; background:var(--bg-color); border:1px solid var(--border); color:var(--text); border-radius:4px;"></div>
+                            <div><label style="font-size:0.75rem;">JP Base</label><input type="number" id="base_jp_${item.equipo}" value="${item.jp_base}" min="0" style="width:100%; padding:0.25rem; background:var(--bg-color); border:1px solid var(--border); color:var(--text); border-radius:4px;"></div>
+                            <div><label style="font-size:0.75rem;">CA Base</label><input type="number" id="base_ca_${item.equipo}" value="${item.ca_base}" min="0" style="width:100%; padding:0.25rem; background:var(--bg-color); border:1px solid var(--border); color:var(--text); border-radius:4px;"></div>
+                            <div><label style="font-size:0.75rem;">CP Base</label><input type="number" id="base_cp_${item.equipo}" value="${item.cp_base}" min="0" style="width:100%; padding:0.25rem; background:var(--bg-color); border:1px solid var(--border); color:var(--text); border-radius:4px;"></div>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+    } catch (e) {
+        container.innerHTML = 'Error al cargar bases.';
+    }
+}
+
+async function handleGuardarStandingsBase(e) {
+    e.preventDefault();
+    const equipos = [
+        "Caribes de Anzoátegui", "Tigres de Aragua", "Cardenales de Lara", 
+        "Bravos de Margarita", "Águilas del Zulia", "Tiburones de La Guaira", 
+        "Leones del Caracas", "Navegantes del Magallanes"
+    ];
+
+    const ajustes = equipos.map(eq => ({
+        equipo: eq,
+        jg_base: parseInt(document.getElementById(`base_jg_${eq}`).value) || 0,
+        jp_base: parseInt(document.getElementById(`base_jp_${eq}`).value) || 0,
+        ca_base: parseInt(document.getElementById(`base_ca_${eq}`).value) || 0,
+        cp_base: parseInt(document.getElementById(`base_cp_${eq}`).value) || 0
+    }));
+
+    try {
+        const res = await fetch(API_URL + '/standings/base', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ajustes })
+        });
+        if (res.ok) {
+            alert('¡Base de standings actualizada con éxito!');
+            closeModal('admin-standings-modal');
+            loadStandings();
+        } else {
+            alert('Error al guardar ajustes.');
+        }
+    } catch (err) {
+        alert('Error de conexión.');
     }
 }
 
@@ -632,13 +739,17 @@ async function handleGuardarPartido(e) {
     if (res.ok) {
         closeModal('create-game-modal');
         renderGames();
+        loadStandings();
     }
 }
 
 async function eliminarPartido(id) {
     if (!confirm('¿Deseas eliminar este partido?')) return;
     const res = await fetch(API_URL + '/partidos/' + id, { method: 'DELETE' });
-    if (res.ok) renderGames();
+    if (res.ok) {
+        renderGames();
+        loadStandings();
+    }
 }
 
 async function cambiarEstadoPartido(partidoId, nuevoEstado) {
@@ -647,7 +758,10 @@ async function cambiarEstadoPartido(partidoId, nuevoEstado) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ partido_id: partidoId, estado: nuevoEstado })
     });
-    if (res.ok) renderGames();
+    if (res.ok) {
+        renderGames();
+        loadStandings();
+    }
 }
 
 async function renderGames() {
@@ -878,6 +992,7 @@ async function handleGuardarResultado(e) {
         renderGames();
         loadLeaderboard();
         loadHistory();
+        loadStandings();
     }
 }
 
@@ -1035,7 +1150,6 @@ async function loadChampionships() {
     }
 }
 
-// NUEVO: Función para solicitar permisos de Notificaciones Push
 async function solicitarPermisoNotificaciones() {
     if (!('Notification' in window)) {
         return alert('Este navegador no soporta notificaciones push.');

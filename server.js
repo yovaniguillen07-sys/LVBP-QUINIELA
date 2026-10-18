@@ -40,6 +40,18 @@ async function initDB() {
         await pool.query(`CREATE TABLE IF NOT EXISTS partidos (id SERIAL PRIMARY KEY, external_id TEXT UNIQUE, equipo_visitante TEXT NOT NULL, equipo_local TEXT NOT NULL, fecha_juego TEXT NOT NULL, hora TEXT NOT NULL, estadio TEXT, estado TEXT DEFAULT 'PENDIENTE', carreras_visitante INTEGER DEFAULT NULL, carreras_local INTEGER DEFAULT NULL)`);
         await pool.query(`CREATE TABLE IF NOT EXISTS pronosticos (id SERIAL PRIMARY KEY, grupo_id INTEGER REFERENCES grupos(id), usuario_id INTEGER REFERENCES usuarios(id), partido_id INTEGER REFERENCES partidos(id), carreras_vis_pred INTEGER NOT NULL, carreras_loc_pred INTEGER NOT NULL, puntos_obtenidos INTEGER DEFAULT 0, UNIQUE(grupo_id, usuario_id, partido_id))`);
         await pool.query(`CREATE TABLE IF NOT EXISTS campeonatos (id SERIAL PRIMARY KEY, grupo_id INTEGER REFERENCES grupos(id), usuario_id INTEGER REFERENCES usuarios(id), puesto INTEGER NOT NULL, fecha_finalizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`);
+        
+        // NUEVA TABLA PARA AJUSTES MANUALES DE STANDINGS (BASE INICIAL)
+        await pool.query(`CREATE TABLE IF NOT EXISTS standings_base (equipo TEXT PRIMARY KEY, jg_base INTEGER DEFAULT 0, jp_base INTEGER DEFAULT 0, ca_base INTEGER DEFAULT 0, cp_base INTEGER DEFAULT 0)`);
+
+        const equiposDefault = [
+            "Caribes de Anzoátegui", "Tigres de Aragua", "Cardenales de Lara", 
+            "Bravos de Margarita", "Águilas del Zulia", "Tiburones de La Guaira", 
+            "Leones del Caracas", "Navegantes del Magallanes"
+        ];
+        for (const eq of equiposDefault) {
+            await pool.query(`INSERT INTO standings_base (equipo, jg_base, jp_base, ca_base, cp_base) VALUES ($1, 0, 0, 0, 0) ON CONFLICT (equipo) DO NOTHING`, [eq]);
+        }
 
         console.log('Base de datos sincronizada, limpia y blindada.');
     } catch (err) {
@@ -59,6 +71,7 @@ app.get('/api/admin/respaldo', async (req, res) => {
         const partidos = await pool.query('SELECT * FROM partidos');
         const pronosticos = await pool.query('SELECT * FROM pronosticos');
         const campeonatos = await pool.query('SELECT * FROM campeonatos');
+        const standingsBase = await pool.query('SELECT * FROM standings_base');
 
         const respaldo = {
             fecha: new Date().toISOString(),
@@ -67,7 +80,8 @@ app.get('/api/admin/respaldo', async (req, res) => {
             miembros_grupo: miembros.rows,
             partidos: partidos.rows,
             pronosticos: pronosticos.rows,
-            campeonatos: campeonatos.rows
+            campeonatos: campeonatos.rows,
+            standings_base: standingsBase.rows
         };
 
         res.setHeader('Content-Type', 'application/json');
@@ -94,10 +108,11 @@ app.post('/api/admin/restaurar', async (req, res) => {
         await client.query('DELETE FROM partidos');
         await client.query('DELETE FROM grupos');
         await client.query('DELETE FROM usuarios');
+        await client.query('DELETE FROM standings_base');
 
         for (const u of data.usuarios) {
             await client.query(
-                'INSERT INTO usuarios (id, username, email, password, fecha_registro) VALUES ($1, \$2, \$3, \$4, \$5)',
+                'INSERT INTO usuarios (id, username, email, password, fecha_registro) VALUES ($1, $2, $3, $4, $5)',
                 [u.id, u.username, u.email, u.password, u.fecha_registro]
             );
         }
@@ -139,6 +154,15 @@ app.post('/api/admin/restaurar', async (req, res) => {
             }
         }
 
+        if (data.standings_base) {
+            for (const sb of data.standings_base) {
+                await client.query(
+                    'INSERT INTO standings_base (equipo, jg_base, jp_base, ca_base, cp_base) VALUES (\$1, \$2, \$3, \$4, \$5)',
+                    [sb.equipo, sb.jg_base, sb.jp_base, sb.ca_base, sb.cp_base]
+                );
+            }
+        }
+
         await client.query('COMMIT');
         res.json({ status: 'ok', message: 'Respaldo restaurado exitosamente.' });
     } catch (err) {
@@ -150,6 +174,118 @@ app.post('/api/admin/restaurar', async (req, res) => {
 });
 // -------------------------------------------------------------------------
 
+// RUTAS PARA STANDINGS / POSICIONES LVBP AUTOMÁTICAS + BASE MANUAL
+app.get('/api/standings/base', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM standings_base ORDER BY equipo ASC');
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/standings/base', async (req, res) => {
+    const { ajustes } = req.body;
+    try {
+        for (const item of ajustes) {
+            await pool.query(
+                `INSERT INTO standings_base (equipo, jg_base, jp_base, ca_base, cp_base) 
+                 VALUES ($1, $2, $3, $4, $5) 
+                 ON CONFLICT (equipo) 
+                 DO UPDATE SET jg_base = $2, jp_base = $3, ca_base = $4, cp_base = $5`,
+                [item.equipo, item.jg_base, item.jp_base, item.ca_base, item.cp_base]
+            );
+        }
+        res.json({ status: 'ok' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/standings', async (req, res) => {
+    try {
+        const partidosRes = await pool.query("SELECT * FROM partidos WHERE estado = 'FINALIZADO'");
+        const partidos = partidosRes.rows;
+
+        const baseRes = await pool.query('SELECT * FROM standings_base');
+        const bases = baseRes.rows;
+
+        const stats = {};
+
+        bases.forEach(b => {
+            stats[b.equipo] = {
+                equipo: b.equipo,
+                jg: b.jg_base,
+                jp: b.jp_base,
+                ca: b.ca_base,
+                cp: b.cp_base
+            };
+        });
+
+        partidos.forEach(p => {
+            const vis = p.equipo_visitante;
+            const loc = p.equipo_local;
+            const rVis = p.carreras_visitante;
+            const rLoc = p.carreras_local;
+
+            if (!stats[vis]) stats[vis] = { equipo: vis, jg: 0, jp: 0, ca: 0, cp: 0 };
+            if (!stats[loc]) stats[loc] = { equipo: loc, jg: 0, jp: 0, ca: 0, cp: 0 };
+
+            stats[vis].ca += rVis;
+            stats[vis].cp += rLoc;
+            stats[loc].ca += rLoc;
+            stats[loc].cp += rVis;
+
+            if (rVis > rLoc) {
+                stats[vis].jg += 1;
+                stats[loc].jp += 1;
+            } else if (rLoc > rVis) {
+                stats[loc].jg += 1;
+                stats[vis].jp += 1;
+            }
+        });
+
+        const listaFinal = Object.values(stats).map(s => {
+            const jj = s.jg + s.jp;
+            const ave = jj > 0 ? (s.jg / jj) : 0;
+            return {
+                equipo: s.equipo,
+                jj,
+                jg: s.jg,
+                jp: s.jp,
+                ave,
+                ca: s.ca,
+                cp: s.cp,
+                dif: 0 
+            };
+        });
+
+        listaFinal.sort((a, b) => {
+            if (b.ave !== a.ave) return b.ave - a.ave;
+            if (b.jg !== a.jg) return b.jg - a.jg;
+            return (b.ca - b.cp) - (a.ca - a.cp);
+        });
+
+        if (listaFinal.length > 0) {
+            const liderJg = listaFinal[0].jg;
+            const liderJp = listaFinal[0].jp;
+            listaFinal.forEach((eq, idx) => {
+                if (idx === 0) {
+                    eq.dif = '0';
+                } else {
+                    const difVal = ((liderJg - eq.jg) + (eq.jp - liderJp)) / 2;
+                    eq.dif = difVal % 1 === 0 ? difVal : difVal.toFixed(1);
+                }
+            });
+        }
+
+        res.json(listaFinal);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// RUTAS AUTH, GRUPOS, PARTIDOS, PRONÓSTICOS, ETC.
 app.post('/api/auth/registro', async (req, res) => {
     const { username, email, password } = req.body;
     try {
@@ -611,6 +747,7 @@ app.get('/api/campeonatos/:grupoId', async (req, res) => {
     }
 });
 
+// Sistema automático de alertas (notificaciones push 2 horas antes)
 const alertasEnviadasHoy = new Set();
 
 setInterval(async () => {
