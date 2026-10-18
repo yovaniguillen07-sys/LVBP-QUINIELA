@@ -52,12 +52,16 @@
             <i class="fa-solid fa-baseball-bat-ball"></i>
             <span>Quiniela <strong>LVBP</strong></span>
         </div>
-        <div class="user-profile">
+        <div class="user-profile" style="display: flex; align-items: center; gap: 0.3rem; flex-wrap: wrap;">
             <div id="user-avatar-container" style="display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; border-radius:50%; background:var(--primary); color:#fff; font-weight:bold; font-size:0.85rem;"></div>
             <span id="user-display-name">Invitado</span>
-            <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem; margin-left: 0.5rem;" onclick="abrirModalPerfil()">Perfil</button>
-            <button id="btn-admin-panel" class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem; margin-left: 0.5rem; display: none; background: var(--accent); color: #000;" onclick="abrirModalAdminUsuarios()">Panel Admin</button>
-            <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem; margin-left: 0.5rem;" onclick="cerrarSesion()">Salir</button>
+            <!-- NUEVO: Botón visible para Activar Notificaciones -->
+            <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem; background: #0284c7; color: #fff;" onclick="solicitarPermisoNotificaciones()" title="Activar notificaciones push">
+                <i class="fa-solid fa-bell"></i> Alertas
+            </button>
+            <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;" onclick="abrirModalPerfil()">Perfil</button>
+            <button id="btn-admin-panel" class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem; display: none; background: var(--accent); color: #000;" onclick="abrirModalAdminUsuarios()">Panel Admin</button>
+            <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;" onclick="cerrarSesion()">Salir</button>
         </div>
     </header>
 
@@ -103,7 +107,6 @@
                     <h2>Jornada LVBP & Pronósticos</h2>
                     <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
                         <select id="group-select-game" onchange="renderGames()"></select>
-                        <!-- NUEVO: Botón para enviar recordatorio a WhatsApp -->
                         <button class="btn" style="background: #25d366; color: #fff;" onclick="enviarRecordatorioWhatsApp()">
                             <i class="fa-brands fa-whatsapp"></i> Recordar a WhatsApp
                         </button>

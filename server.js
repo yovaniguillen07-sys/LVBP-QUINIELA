@@ -97,7 +97,7 @@ app.post('/api/admin/restaurar', async (req, res) => {
 
         for (const u of data.usuarios) {
             await client.query(
-                'INSERT INTO usuarios (id, username, email, password, fecha_registro) VALUES ($1, $2, $3, \$4, \$5)',
+                'INSERT INTO usuarios (id, username, email, password, fecha_registro) VALUES ($1, \$2, \$3, \$4, \$5)',
                 [u.id, u.username, u.email, u.password, u.fecha_registro]
             );
         }
@@ -445,9 +445,6 @@ app.get('/api/admin/pronosticos/:grupoId', async (req, res) => {
     }
 });
 
-// =========================================================================
-// VALIDACIÓN CORREGIDA: 30 min antes (Hora de Venezuela) respetando Admin "Abrir"
-// =========================================================================
 app.post('/api/pronosticos', async (req, res) => {
     const { grupo_id, usuario_id, partido_id, carreras_vis_pred, carreras_loc_pred } = req.body;
     try {
@@ -460,12 +457,10 @@ app.post('/api/pronosticos', async (req, res) => {
             return res.status(400).json({ error: 'El partido ya está cerrado o finalizado.' });
         }
 
-        // Conversión precisa a hora local de Venezuela (America/Caracas - UTC-4)
         const hora24 = convertir12a24(partido.hora);
         const fechaHoraStr = `${partido.fecha_juego}T${hora24}:00-04:00`;
         const horaPartido = new Date(fechaHoraStr).getTime();
         
-        // Hora actual ajustada a Caracas
         const ahoraStr = new Date().toLocaleString("en-US", { timeZone: "America/Caracas" });
         const ahora = new Date(ahoraStr).getTime();
         
@@ -559,7 +554,7 @@ app.get('/api/leaderboard/:grupoId', async (req, res) => {
         FROM miembros_grupo mg 
         JOIN usuarios u ON mg.usuario_id = u.id 
         JOIN grupos g ON g.id = mg.grupo_id
-        LEFT JOIN pronosticos pr pr.usuario_id = u.id AND pr.grupo_id = mg.grupo_id
+        LEFT JOIN pronosticos pr ON pr.usuario_id = u.id AND pr.grupo_id = mg.grupo_id
         WHERE mg.grupo_id = $1 
         GROUP BY u.id, u.username, mg.puntos_acumulados
         ORDER BY puntos_acumulados DESC, aciertos_directos DESC, u.username ASC;
@@ -616,9 +611,6 @@ app.get('/api/campeonatos/:grupoId', async (req, res) => {
     }
 });
 
-// =========================================================================
-// SISTEMA AUTOMÁTICO DE RECORDATORIOS (Notificaciones 2 horas antes)
-// =========================================================================
 const alertasEnviadasHoy = new Set();
 
 setInterval(async () => {
@@ -651,7 +643,7 @@ setInterval(async () => {
     } catch (err) {
         console.error('Error en el verificador automático de partidos:', err.message);
     }
-}, 15 * 60 * 1000); // Revisa cada 15 minutos
+}, 15 * 60 * 1000);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

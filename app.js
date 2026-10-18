@@ -1035,6 +1035,33 @@ async function loadChampionships() {
     }
 }
 
+// NUEVO: Función para solicitar permisos de Notificaciones Push
+async function solicitarPermisoNotificaciones() {
+    if (!('Notification' in window)) {
+        return alert('Este navegador no soporta notificaciones push.');
+    }
+
+    if (!('serviceWorker' in navigator)) {
+        return alert('Tu navegador no soporta Service Workers.');
+    }
+
+    try {
+        const permission = await Notification.requestPermission();
+        if (permission === 'granted') {
+            alert('¡Notificaciones activadas con éxito! ⚾🔔 Te avisaremos 2 horas antes de cada juego.');
+            const registration = await navigator.serviceWorker.ready;
+            console.log('Service Worker listo para push:', registration);
+        } else if (permission === 'denied') {
+            alert('Has bloqueado las notificaciones. Habilítalas en la configuración de tu navegador.');
+        } else {
+            alert('Permiso de notificaciones no concedido.');
+        }
+    } catch (err) {
+        console.error('Error al solicitar permisos:', err);
+        alert('Ocurrió un error al intentar activar las notificaciones.');
+    }
+}
+
 function switchTab(tabId) {
     document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
     document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
