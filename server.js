@@ -13,6 +13,32 @@ const pool = new Pool({
     ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
 });
 
+const EQUIPOS_LVBP_OFICIALES = [
+    "Caribes de Anzoátegui",
+    "Tigres de Aragua",
+    "Cardenales de Lara",
+    "Bravos de Margarita",
+    "Águilas del Zulia",
+    "Tiburones de La Guaira",
+    "Leones del Caracas",
+    "Navegantes del Magallanes"
+];
+
+// Función para normalizar nombres y evitar duplicados por tildes o mayúsculas
+function normalizarNombreEquipo(nombre) {
+    if (!nombre) return '';
+    const n = nombre.trim().toLowerCase();
+    if (n.includes('caribes')) return "Caribes de Anzoátegui";
+    if (n.includes('tigres')) return "Tigres de Aragua";
+    if (n.includes('cardenales')) return "Cardenales de Lara";
+    if (n.includes('bravos')) return "Bravos de Margarita";
+    if (n.includes('águilas') || n.includes('aguilas')) return "Águilas del Zulia";
+    if (n.includes('tiburones')) return "Tiburones de La Guaira";
+    if (n.includes('leones')) return "Leones del Caracas";
+    if (n.includes('magallanes') || n.includes('navegantes')) return "Navegantes del Magallanes";
+    return nombre.trim();
+}
+
 async function initDB() {
     try {
         await pool.query(`CREATE TABLE IF NOT EXISTS usuarios (id SERIAL PRIMARY KEY, username TEXT UNIQUE NOT NULL, email TEXT UNIQUE NOT NULL, password TEXT NOT NULL, fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`);
@@ -41,15 +67,9 @@ async function initDB() {
         await pool.query(`CREATE TABLE IF NOT EXISTS pronosticos (id SERIAL PRIMARY KEY, grupo_id INTEGER REFERENCES grupos(id), usuario_id INTEGER REFERENCES usuarios(id), partido_id INTEGER REFERENCES partidos(id), carreras_vis_pred INTEGER NOT NULL, carreras_loc_pred INTEGER NOT NULL, puntos_obtenidos INTEGER DEFAULT 0, UNIQUE(grupo_id, usuario_id, partido_id))`);
         await pool.query(`CREATE TABLE IF NOT EXISTS campeonatos (id SERIAL PRIMARY KEY, grupo_id INTEGER REFERENCES grupos(id), usuario_id INTEGER REFERENCES usuarios(id), puesto INTEGER NOT NULL, fecha_finalizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`);
         
-        // NUEVA TABLA PARA AJUSTES MANUALES DE STANDINGS (BASE INICIAL)
         await pool.query(`CREATE TABLE IF NOT EXISTS standings_base (equipo TEXT PRIMARY KEY, jg_base INTEGER DEFAULT 0, jp_base INTEGER DEFAULT 0, ca_base INTEGER DEFAULT 0, cp_base INTEGER DEFAULT 0)`);
 
-        const equiposDefault = [
-            "Caribes de Anzoátegui", "Tigres de Aragua", "Cardenales de Lara", 
-            "Bravos de Margarita", "Águilas del Zulia", "Tiburones de La Guaira", 
-            "Leones del Caracas", "Navegantes del Magallanes"
-        ];
-        for (const eq of equiposDefault) {
+        for (const eq of EQUIPOS_LVBP_OFICIALES) {
             await pool.query(`INSERT INTO standings_base (equipo, jg_base, jp_base, ca_base, cp_base) VALUES ($1, 0, 0, 0, 0) ON CONFLICT (equipo) DO NOTHING`, [eq]);
         }
 
@@ -60,9 +80,7 @@ async function initDB() {
 }
 initDB();
 
-// -------------------------------------------------------------------------
-// RUTAS DE RESPALDO Y RESTAURACIÓN DE BASE DE DATOS
-// -------------------------------------------------------------------------
+// RUTAS DE RESPALDO Y RESTAURACIÓN
 app.get('/api/admin/respaldo', async (req, res) => {
     try {
         const usuarios = await pool.query('SELECT * FROM usuarios');
@@ -119,21 +137,21 @@ app.post('/api/admin/restaurar', async (req, res) => {
 
         for (const g of data.grupos) {
             await client.query(
-                'INSERT INTO grupos (id, nombre, codigo_acceso, tipo, password, estado, creador_id) VALUES (\$1, \$2, \$3, \$4, \$5, \$6, \$7)',
+                'INSERT INTO grupos (id, nombre, codigo_acceso, tipo, password, estado, creador_id) VALUES ($1, $2, $3, $4, $5, $6, $7)',
                 [g.id, g.nombre, g.codigo_acceso, g.tipo, g.password, g.estado, g.creador_id]
             );
         }
 
         for (const m of data.miembros_grupo) {
             await client.query(
-                'INSERT INTO miembros_grupo (grupo_id, usuario_id, puntos_acumulados) VALUES (\$1, \$2, \$3)',
+                'INSERT INTO miembros_grupo (grupo_id, usuario_id, puntos_acumulados) VALUES ($1, $2, $3)',
                 [m.grupo_id, m.usuario_id, m.puntos_acumulados]
             );
         }
 
         for (const p of data.partidos) {
             await client.query(
-                'INSERT INTO partidos (id, external_id, equipo_visitante, equipo_local, fecha_juego, hora, estadio, estado, carreras_visitante, carreras_local) VALUES (\$1, \$2, \$3, \$4, \$5, \$6, \$7, \$8, \$9, \$10)',
+                'INSERT INTO partidos (id, external_id, equipo_visitante, equipo_local, fecha_juego, hora, estadio, estado, carreras_visitante, carreras_local) VALUES ($1, $2, $3, $4, $5, $6, \$7, \$8, \$9, \$10)',
                 [p.id, p.external_id, p.equipo_visitante, p.equipo_local, p.fecha_juego, p.hora, p.estadio, p.estado, p.carreras_visitante, p.carreras_local]
             );
         }
@@ -172,9 +190,8 @@ app.post('/api/admin/restaurar', async (req, res) => {
         client.release();
     }
 });
-// -------------------------------------------------------------------------
 
-// RUTAS PARA STANDINGS / POSICIONES LVBP AUTOMÁTICAS + BASE MANUAL
+// RUTAS STANDINGS OFICIALES LVBP
 app.get('/api/standings/base', async (req, res) => {
     try {
         const result = await pool.query('SELECT * FROM standings_base ORDER BY equipo ASC');
@@ -188,12 +205,13 @@ app.post('/api/standings/base', async (req, res) => {
     const { ajustes } = req.body;
     try {
         for (const item of ajustes) {
+            const nombreOficial = normalizarNombreEquipo(item.equipo);
             await pool.query(
                 `INSERT INTO standings_base (equipo, jg_base, jp_base, ca_base, cp_base) 
                  VALUES ($1, $2, $3, $4, $5) 
                  ON CONFLICT (equipo) 
                  DO UPDATE SET jg_base = $2, jp_base = $3, ca_base = $4, cp_base = $5`,
-                [item.equipo, item.jg_base, item.jp_base, item.ca_base, item.cp_base]
+                [nombreOficial, item.jg_base, item.jp_base, item.ca_base, item.cp_base]
             );
         }
         res.json({ status: 'ok' });
@@ -212,36 +230,44 @@ app.get('/api/standings', async (req, res) => {
 
         const stats = {};
 
-        bases.forEach(b => {
-            stats[b.equipo] = {
-                equipo: b.equipo,
-                jg: b.jg_base,
-                jp: b.jp_base,
-                ca: b.ca_base,
-                cp: b.cp_base
-            };
+        // Inicializar estrictamente con los 8 equipos oficiales
+        EQUIPOS_LVBP_OFICIALES.forEach(eq => {
+            stats[eq] = { equipo: eq, jg: 0, jp: 0, ca: 0, cp: 0 };
         });
 
+        // Sumar la base manual configurada
+        bases.forEach(b => {
+            const eqNorm = normalizarNombreEquipo(b.equipo);
+            if (stats[eqNorm]) {
+                stats[eqNorm].jg = b.jg_base;
+                stats[eqNorm].jp = b.jp_base;
+                stats[eqNorm].ca = b.ca_base;
+                stats[eqNorm].cp = b.cp_base;
+            }
+        });
+
+        // Sumar partidos finalizados de la quiniela
         partidos.forEach(p => {
-            const vis = p.equipo_visitante;
-            const loc = p.equipo_local;
+            const vis = normalizarNombreEquipo(p.equipo_visitante);
+            const loc = normalizarNombreEquipo(p.equipo_local);
             const rVis = p.carreras_visitante;
             const rLoc = p.carreras_local;
 
-            if (!stats[vis]) stats[vis] = { equipo: vis, jg: 0, jp: 0, ca: 0, cp: 0 };
-            if (!stats[loc]) stats[loc] = { equipo: loc, jg: 0, jp: 0, ca: 0, cp: 0 };
-
-            stats[vis].ca += rVis;
-            stats[vis].cp += rLoc;
-            stats[loc].ca += rLoc;
-            stats[loc].cp += rVis;
+            if (stats[vis]) {
+                stats[vis].ca += rVis;
+                stats[vis].cp += rLoc;
+            }
+            if (stats[loc]) {
+                stats[loc].ca += rLoc;
+                stats[loc].cp += rVis;
+            }
 
             if (rVis > rLoc) {
-                stats[vis].jg += 1;
-                stats[loc].jp += 1;
+                if (stats[vis]) stats[vis].jg += 1;
+                if (stats[loc]) stats[loc].jp += 1;
             } else if (rLoc > rVis) {
-                stats[loc].jg += 1;
-                stats[vis].jp += 1;
+                if (stats[loc]) stats[loc].jg += 1;
+                if (stats[vis]) stats[vis].jp += 1;
             }
         });
 
@@ -260,6 +286,7 @@ app.get('/api/standings', async (req, res) => {
             };
         });
 
+        // Ordenar por AVE (mayor a menor), luego JG, luego diferencia de carreras
         listaFinal.sort((a, b) => {
             if (b.ave !== a.ave) return b.ave - a.ave;
             if (b.jg !== a.jg) return b.jg - a.jg;
@@ -747,7 +774,6 @@ app.get('/api/campeonatos/:grupoId', async (req, res) => {
     }
 });
 
-// Sistema automático de alertas (notificaciones push 2 horas antes)
 const alertasEnviadasHoy = new Set();
 
 setInterval(async () => {
