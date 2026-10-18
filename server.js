@@ -4,7 +4,7 @@ const cors = require('cors');
 const path = require('path');
 
 const app = express();
-app.use(express.json({ limit: '10mb' })); // Permitir subidas de respaldos grandes
+app.use(express.json({ limit: '10mb' })); 
 app.use(cors());
 app.use(express.static(path.join(__dirname, '/')));
 
@@ -97,35 +97,35 @@ app.post('/api/admin/restaurar', async (req, res) => {
 
         for (const u of data.usuarios) {
             await client.query(
-                'INSERT INTO usuarios (id, username, email, password, fecha_registro) VALUES ($1, \$2, \$3, \$4, \$5)',
+                'INSERT INTO usuarios (id, username, email, password, fecha_registro) VALUES ($1, $2, $3, $4, $5)',
                 [u.id, u.username, u.email, u.password, u.fecha_registro]
             );
         }
 
         for (const g of data.grupos) {
             await client.query(
-                'INSERT INTO grupos (id, nombre, codigo_acceso, tipo, password, estado, creador_id) VALUES (\$1, \$2, \$3, \$4, \$5, \$6, \$7)',
+                'INSERT INTO grupos (id, nombre, codigo_acceso, tipo, password, estado, creador_id) VALUES ($1, $2, $3, $4, $5, $6, $7)',
                 [g.id, g.nombre, g.codigo_acceso, g.tipo, g.password, g.estado, g.creador_id]
             );
         }
 
         for (const m of data.miembros_grupo) {
             await client.query(
-                'INSERT INTO miembros_grupo (grupo_id, usuario_id, puntos_acumulados) VALUES (\$1, \$2, \$3)',
+                'INSERT INTO miembros_grupo (grupo_id, usuario_id, puntos_acumulados) VALUES ($1, $2, $3)',
                 [m.grupo_id, m.usuario_id, m.puntos_acumulados]
             );
         }
 
         for (const p of data.partidos) {
             await client.query(
-                'INSERT INTO partidos (id, external_id, equipo_visitante, equipo_local, fecha_juego, hora, estadio, estado, carreras_visitante, carreras_local) VALUES (\$1, \$2, \$3, \$4, \$5, \$6, \$7, \$8, \$9, \$10)',
+                'INSERT INTO partidos (id, external_id, equipo_visitante, equipo_local, fecha_juego, hora, estadio, estado, carreras_visitante, carreras_local) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)',
                 [p.id, p.external_id, p.equipo_visitante, p.equipo_local, p.fecha_juego, p.hora, p.estadio, p.estado, p.carreras_visitante, p.carreras_local]
             );
         }
 
         for (const pr of data.pronosticos) {
             await client.query(
-                'INSERT INTO pronosticos (id, grupo_id, usuario_id, partido_id, carreras_vis_pred, carreras_loc_pred, puntos_obtenidos) VALUES (\$1, \$2, \$3, \$4, \$5, \$6, \$7)',
+                'INSERT INTO pronosticos (id, grupo_id, usuario_id, partido_id, carreras_vis_pred, carreras_loc_pred, puntos_obtenidos) VALUES ($1, $2, $3, $4, $5, $6, $7)',
                 [pr.id, pr.grupo_id, pr.usuario_id, pr.partido_id, pr.carreras_vis_pred, pr.carreras_loc_pred, pr.puntos_obtenidos]
             );
         }
@@ -133,7 +133,7 @@ app.post('/api/admin/restaurar', async (req, res) => {
         if (data.campeonatos) {
             for (const c of data.campeonatos) {
                 await client.query(
-                    'INSERT INTO campeonatos (id, grupo_id, usuario_id, puesto, fecha_finalizacion) VALUES (\$1, \$2, \$3, \$4, \$5)',
+                    'INSERT INTO campeonatos (id, grupo_id, usuario_id, puesto, fecha_finalizacion) VALUES ($1, $2, $3, $4, $5)',
                     [c.id, c.grupo_id, c.usuario_id, c.puesto, c.fecha_finalizacion]
                 );
             }
@@ -153,7 +153,7 @@ app.post('/api/admin/restaurar', async (req, res) => {
 app.post('/api/auth/registro', async (req, res) => {
     const { username, email, password } = req.body;
     try {
-        const result = await pool.query('INSERT INTO usuarios (username, email, password) VALUES (\$1, \$2, \$3) RETURNING id', [username, email, password]);
+        const result = await pool.query('INSERT INTO usuarios (username, email, password) VALUES ($1, $2, $3) RETURNING id', [username, email, password]);
         res.json({ status: 'ok', userId: result.rows[0].id, username });
     } catch (err) {
         res.status(400).json({ error: 'El usuario o correo ya existe.' });
@@ -163,7 +163,7 @@ app.post('/api/auth/registro', async (req, res) => {
 app.post('/api/auth/login', async (req, res) => {
     const { username, password } = req.body;
     try {
-        const result = await pool.query('SELECT * FROM usuarios WHERE username = \$1 AND password = \$2', [username, password]);
+        const result = await pool.query('SELECT * FROM usuarios WHERE username = $1 AND password = $2', [username, password]);
         if (result.rows.length === 0) return res.status(401).json({ error: 'Credenciales inválidas.' });
         const row = result.rows[0];
         res.json({ status: 'ok', user: { id: row.id, username: row.username, email: row.email } });
@@ -175,8 +175,8 @@ app.post('/api/auth/login', async (req, res) => {
 app.put('/api/usuarios/:id', async (req, res) => {
     const { username, password } = req.body;
     try {
-        await pool.query('UPDATE usuarios SET username = \$1, password = \$2 WHERE id = \$3', [username, password, req.params.id]);
-        const userRes = await pool.query('SELECT id, username, email FROM usuarios WHERE id = \$1', [req.params.id]);
+        await pool.query('UPDATE usuarios SET username = $1, password = $2 WHERE id = $3', [username, password, req.params.id]);
+        const userRes = await pool.query('SELECT id, username, email FROM usuarios WHERE id = $1', [req.params.id]);
         res.json({ status: 'ok', user: userRes.rows[0] });
     } catch (err) {
         res.status(400).json({ error: 'El nombre de usuario ya está en uso.' });
@@ -195,7 +195,7 @@ app.get('/api/admin/usuarios', async (req, res) => {
 app.post('/api/admin/usuarios', async (req, res) => {
     const { username, email, password } = req.body;
     try {
-        const result = await pool.query('INSERT INTO usuarios (username, email, password) VALUES (\$1, \$2, \$3) RETURNING id', [username, email, password]);
+        const result = await pool.query('INSERT INTO usuarios (username, email, password) VALUES ($1, $2, $3) RETURNING id', [username, email, password]);
         res.json({ status: 'ok', userId: result.rows[0].id });
     } catch (err) {
         res.status(400).json({ error: 'No se pudo crear el usuario.' });
@@ -205,10 +205,10 @@ app.post('/api/admin/usuarios', async (req, res) => {
 app.delete('/api/admin/usuarios/:id', async (req, res) => {
     const userId = req.params.id;
     try {
-        await pool.query('DELETE FROM pronosticos WHERE usuario_id = \$1', [userId]);
-        await pool.query('DELETE FROM miembros_grupo WHERE usuario_id = \$1', [userId]);
-        await pool.query('DELETE FROM campeonatos WHERE usuario_id = \$1', [userId]);
-        await pool.query('DELETE FROM usuarios WHERE id = \$1', [userId]);
+        await pool.query('DELETE FROM pronosticos WHERE usuario_id = $1', [userId]);
+        await pool.query('DELETE FROM miembros_grupo WHERE usuario_id = $1', [userId]);
+        await pool.query('DELETE FROM campeonatos WHERE usuario_id = $1', [userId]);
+        await pool.query('DELETE FROM usuarios WHERE id = $1', [userId]);
         res.json({ status: 'ok' });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -229,11 +229,11 @@ app.post('/api/grupos/crear', async (req, res) => {
     const codigo = 'LVBP-' + Math.random().toString(36).substring(2, 7).toUpperCase();
     try {
         const result = await pool.query(
-            'INSERT INTO grupos (nombre, codigo_acceso, tipo, password, estado, creador_id) VALUES (\$1, \$2, \$3, \$4, \$5, \$6) RETURNING id',
+            'INSERT INTO grupos (nombre, codigo_acceso, tipo, password, estado, creador_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id',
             [nombre, codigo, tipo || 'PUBLICA', password || '', 'CONFIGURACION', creador_id]
         );
         const grupoId = result.rows[0].id;
-        await pool.query('INSERT INTO miembros_grupo (grupo_id, usuario_id, puntos_acumulados) VALUES (\$1, \$2, 0) ON CONFLICT (grupo_id, usuario_id) DO NOTHING', [grupoId, creador_id]);
+        await pool.query('INSERT INTO miembros_grupo (grupo_id, usuario_id, puntos_acumulados) VALUES ($1, $2, 0) ON CONFLICT (grupo_id, usuario_id) DO NOTHING', [grupoId, creador_id]);
         res.json({ status: 'ok', grupoId, codigo });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -243,7 +243,7 @@ app.post('/api/grupos/crear', async (req, res) => {
 app.put('/api/grupos/:id', async (req, res) => {
     const { nombre, tipo, password } = req.body;
     try {
-        await pool.query('UPDATE grupos SET nombre = \$1, tipo = \$2, password = \$3 WHERE id = \$4', [nombre, tipo, password, req.params.id]);
+        await pool.query('UPDATE grupos SET nombre = $1, tipo = $2, password = $3 WHERE id = $4', [nombre, tipo, password, req.params.id]);
         res.json({ status: 'ok' });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -253,7 +253,7 @@ app.put('/api/grupos/:id', async (req, res) => {
 app.post('/api/grupos/comenzar', async (req, res) => {
     const { grupo_id } = req.body;
     try {
-        await pool.query('UPDATE grupos SET estado = \$1 WHERE id = \$2', ['EN_PROGRESO', grupo_id]);
+        await pool.query('UPDATE grupos SET estado = $1 WHERE id = $2', ['EN_PROGRESO', grupo_id]);
         res.json({ status: 'ok' });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -264,13 +264,13 @@ app.post('/api/grupos/finalizar', async (req, res) => {
     const { grupo_id } = req.body;
     try {
         const ranking = await pool.query(`SELECT usuario_id FROM miembros_grupo WHERE grupo_id = $1 ORDER BY puntos_acumulados DESC`, [grupo_id]);
-        await pool.query('DELETE FROM campeonatos WHERE grupo_id = \$1', [grupo_id]);
+        await pool.query('DELETE FROM campeonatos WHERE grupo_id = $1', [grupo_id]);
         for (let i = 0; i < ranking.rows.length; i++) {
             if (i < 3) {
-                await pool.query('INSERT INTO campeonatos (grupo_id, usuario_id, puesto) VALUES (\$1, \$2, \$3)', [grupo_id, ranking.rows[i].usuario_id, i + 1]);
+                await pool.query('INSERT INTO campeonatos (grupo_id, usuario_id, puesto) VALUES ($1, $2, $3)', [grupo_id, ranking.rows[i].usuario_id, i + 1]);
             }
         }
-        await pool.query('UPDATE grupos SET estado = \$1 WHERE id = \$2', ['FINALIZADA', grupo_id]);
+        await pool.query('UPDATE grupos SET estado = $1 WHERE id = $2', ['FINALIZADA', grupo_id]);
         res.json({ status: 'ok' });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -280,7 +280,7 @@ app.post('/api/grupos/finalizar', async (req, res) => {
 app.post('/api/grupos/unirse', async (req, res) => {
     const { codigo_acceso, password, usuario_id } = req.body;
     try {
-        const grupoRes = await pool.query('SELECT * FROM grupos WHERE codigo_acceso = \$1', [codigo_acceso]);
+        const grupoRes = await pool.query('SELECT * FROM grupos WHERE codigo_acceso = $1', [codigo_acceso]);
         if (grupoRes.rows.length === 0) return res.status(404).json({ error: 'Liga no encontrada con ese código.' });
         const grupo = grupoRes.rows[0];
 
@@ -292,7 +292,7 @@ app.post('/api/grupos/unirse', async (req, res) => {
             return res.status(401).json({ error: 'Contraseña incorrecta para esta liga privada.' });
         }
         await pool.query(
-            'INSERT INTO miembros_grupo (grupo_id, usuario_id, puntos_acumulados) VALUES (\$1, \$2, 0) ON CONFLICT (grupo_id, usuario_id) DO NOTHING',
+            'INSERT INTO miembros_grupo (grupo_id, usuario_id, puntos_acumulados) VALUES ($1, $2, 0) ON CONFLICT (grupo_id, usuario_id) DO NOTHING',
             [grupo.id, usuario_id]
         );
         res.json({ status: 'ok', grupoId: grupo.id, nombre: grupo.nombre });
@@ -313,12 +313,12 @@ app.get('/api/grupos/:id/miembros', async (req, res) => {
 app.delete('/api/grupos/:grupoId/miembros/:usuarioId', async (req, res) => {
     const { grupoId, usuarioId } = req.params;
     try {
-        const grupoRes = await pool.query('SELECT estado FROM grupos WHERE id = \$1', [grupoId]);
+        const grupoRes = await pool.query('SELECT estado FROM grupos WHERE id = $1', [grupoId]);
         if (grupoRes.rows.length === 0) return res.status(404).json({ error: 'Grupo no encontrado.' });
         if (grupoRes.rows[0].estado !== 'CONFIGURACION') return res.status(400).json({ error: 'La liga ya comenzó.' });
 
-        await pool.query('DELETE FROM pronosticos WHERE grupo_id = \$1 AND usuario_id = \$2', [grupoId, usuarioId]);
-        await pool.query('DELETE FROM miembros_grupo WHERE grupo_id = \$1 AND usuario_id = \$2', [grupoId, usuarioId]);
+        await pool.query('DELETE FROM pronosticos WHERE grupo_id = $1 AND usuario_id = $2', [grupoId, usuarioId]);
+        await pool.query('DELETE FROM miembros_grupo WHERE grupo_id = $1 AND usuario_id = $2', [grupoId, usuarioId]);
         res.json({ status: 'ok' });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -328,10 +328,10 @@ app.delete('/api/grupos/:grupoId/miembros/:usuarioId', async (req, res) => {
 app.delete('/api/grupos/:id', async (req, res) => {
     const grupoId = req.params.id;
     try {
-        await pool.query('DELETE FROM pronosticos WHERE grupo_id = \$1', [grupoId]);
-        await pool.query('DELETE FROM miembros_grupo WHERE grupo_id = \$1', [grupoId]);
-        await pool.query('DELETE FROM campeonatos WHERE grupo_id = \$1', [grupoId]);
-        await pool.query('DELETE FROM grupos WHERE id = \$1', [grupoId]);
+        await pool.query('DELETE FROM pronosticos WHERE grupo_id = $1', [grupoId]);
+        await pool.query('DELETE FROM miembros_grupo WHERE grupo_id = $1', [grupoId]);
+        await pool.query('DELETE FROM campeonatos WHERE grupo_id = $1', [grupoId]);
+        await pool.query('DELETE FROM grupos WHERE id = $1', [grupoId]);
         res.json({ status: 'ok' });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -341,10 +341,10 @@ app.delete('/api/grupos/:id', async (req, res) => {
 app.post('/api/grupos/resetear', async (req, res) => {
     const { grupo_id } = req.body;
     try {
-        await pool.query('DELETE FROM pronosticos WHERE grupo_id = \$1', [grupo_id]);
-        await pool.query('DELETE FROM campeonatos WHERE grupo_id = \$1', [grupo_id]);
-        await pool.query('UPDATE miembros_grupo SET puntos_acumulados = 0 WHERE grupo_id = \$1', [grupo_id]);
-        await pool.query('UPDATE grupos SET estado = \$1 WHERE id = \$2', ['CONFIGURACION', grupo_id]);
+        await pool.query('DELETE FROM pronosticos WHERE grupo_id = $1', [grupo_id]);
+        await pool.query('DELETE FROM campeonatos WHERE grupo_id = $1', [grupo_id]);
+        await pool.query('UPDATE miembros_grupo SET puntos_acumulados = 0 WHERE grupo_id = $1', [grupo_id]);
+        await pool.query('UPDATE grupos SET estado = $1 WHERE id = $2', ['CONFIGURACION', grupo_id]);
         res.json({ status: 'ok' });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -364,7 +364,7 @@ app.post('/api/partidos/crear', async (req, res) => {
     const { equipo_visitante, equipo_local, fecha_juego, hora, estadio } = req.body;
     const externalId = `man_${Date.now()}`;
     try {
-        const result = await pool.query('INSERT INTO partidos (external_id, equipo_visitante, equipo_local, fecha_juego, hora, estadio, estado) VALUES (\$1, \$2, \$3, \$4, \$5, \$6, \$7) RETURNING id', [externalId, equipo_visitante, equipo_local, fecha_juego, hora, estadio, 'PENDIENTE']);
+        const result = await pool.query('INSERT INTO partidos (external_id, equipo_visitante, equipo_local, fecha_juego, hora, estadio, estado) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id', [externalId, equipo_visitante, equipo_local, fecha_juego, hora, estadio, 'PENDIENTE']);
         res.json({ status: 'ok', partidoId: result.rows[0].id });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -374,7 +374,7 @@ app.post('/api/partidos/crear', async (req, res) => {
 app.put('/api/partidos/:id', async (req, res) => {
     const { equipo_visitante, equipo_local, fecha_juego, hora, estadio } = req.body;
     try {
-        await pool.query('UPDATE partidos SET equipo_visitante = \$1, equipo_local = \$2, fecha_juego = \$3, hora = \$4, estadio = \$5 WHERE id = \$6', [equipo_visitante, equipo_local, fecha_juego, hora, estadio, req.params.id]);
+        await pool.query('UPDATE partidos SET equipo_visitante = $1, equipo_local = $2, fecha_juego = $3, hora = $4, estadio = $5 WHERE id = $6', [equipo_visitante, equipo_local, fecha_juego, hora, estadio, req.params.id]);
         res.json({ status: 'ok' });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -383,8 +383,8 @@ app.put('/api/partidos/:id', async (req, res) => {
 
 app.delete('/api/partidos/:id', async (req, res) => {
     try {
-        await pool.query('DELETE FROM pronosticos WHERE partido_id = \$1', [req.params.id]);
-        await pool.query('DELETE FROM partidos WHERE id = \$1', [req.params.id]);
+        await pool.query('DELETE FROM pronosticos WHERE partido_id = $1', [req.params.id]);
+        await pool.query('DELETE FROM partidos WHERE id = $1', [req.params.id]);
         res.json({ status: 'ok' });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -394,7 +394,7 @@ app.delete('/api/partidos/:id', async (req, res) => {
 app.post('/api/partidos/estado', async (req, res) => {
     const { partido_id, estado } = req.body;
     try {
-        await pool.query('UPDATE partidos SET estado = \$1 WHERE id = \$2', [estado, partido_id]);
+        await pool.query('UPDATE partidos SET estado = $1 WHERE id = $2', [estado, partido_id]);
         res.json({ status: 'ok' });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -403,7 +403,7 @@ app.post('/api/partidos/estado', async (req, res) => {
 
 app.get('/api/pronosticos/:grupoId/:usuarioId', async (req, res) => {
     try {
-        const result = await pool.query('SELECT * FROM pronosticos WHERE grupo_id = \$1 AND usuario_id = \$2', [req.params.grupoId, req.params.usuarioId]);
+        const result = await pool.query('SELECT * FROM pronosticos WHERE grupo_id = $1 AND usuario_id = $2', [req.params.grupoId, req.params.usuarioId]);
         res.json(result.rows);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -413,7 +413,7 @@ app.get('/api/pronosticos/:grupoId/:usuarioId', async (req, res) => {
 app.get('/api/pronosticos/partido/:grupoId/:partidoId', async (req, res) => {
     const { grupoId, partidoId } = req.params;
     try {
-        const partidoRes = await pool.query('SELECT estado FROM partidos WHERE id = \$1', [partidoId]);
+        const partidoRes = await pool.query('SELECT estado FROM partidos WHERE id = $1', [partidoId]);
         if (partidoRes.rows.length === 0) return res.status(404).json({ error: 'Partido no encontrado.' });
         
         const estadoPartido = partidoRes.rows[0].estado;
@@ -445,21 +445,35 @@ app.get('/api/admin/pronosticos/:grupoId', async (req, res) => {
     }
 });
 
+// =========================================================================
+// VALIDACIÓN CORREGIDA: 30 min antes (Hora de Venezuela) respetando Admin "Abrir"
+// =========================================================================
 app.post('/api/pronosticos', async (req, res) => {
     const { grupo_id, usuario_id, partido_id, carreras_vis_pred, carreras_loc_pred } = req.body;
     try {
-        const partidoRes = await pool.query('SELECT * FROM partidos WHERE id = \$1', [partido_id]);
+        const partidoRes = await pool.query('SELECT * FROM partidos WHERE id = $1', [partido_id]);
         if (partidoRes.rows.length === 0) return res.status(404).json({ error: 'Partido no encontrado.' });
         
         const partido = partidoRes.rows[0];
-        if (partido.estado !== 'PENDIENTE') return res.status(400).json({ error: 'El partido ya está cerrado o finalizado.' });
+        
+        // Si el admin colocó el partido en estado CERRADO o FINALIZADO de forma estricta, bloquea. 
+        // Si está en PENDIENTE, evaluamos el tiempo de los 30 minutos, pero permitiendo que el Admin (id=1) sobrescriba si lo abrió manualmente.
+        if (partido.estado === 'CERRADO' || partido.estado === 'FINALIZADO' || partido.estado === 'SUSPENDIDO') {
+            return res.status(400).json({ error: 'El partido ya está cerrado o finalizado.' });
+        }
 
-        const fechaHoraStr = `${partido.fecha_juego}T${partido.hora.includes('PM') || partido.hora.includes('AM') ? convertir12a24(partido.hora) : partido.hora}:00`;
+        // Conversión precisa a hora local de Venezuela (America/Caracas - UTC-4)
+        const hora24 = convertir12a24(partido.hora);
+        const fechaHoraStr = `${partido.fecha_juego}T${hora24}:00-04:00`;
         const horaPartido = new Date(fechaHoraStr).getTime();
-        const ahora = new Date().getTime();
+        
+        // Hora actual ajustada a Caracas
+        const ahoraStr = new Date().toLocaleString("en-US", { timeZone: "America/Caracas" });
+        const ahora = new Date(ahoraStr).getTime();
         
         if (!isNaN(horaPartido) && usuario_id !== 1) {
             const diferenciaMs = horaPartido - ahora;
+            // 30 minutos = 1,800,000 ms. Si falta menos de 30 min y el partido no fue reabierto manualmente por admin:
             if (diferenciaMs < 1800000) {
                 return res.status(400).json({ error: 'Los pronósticos se cierran automáticamente 30 minutos antes de comenzar el juego.' });
             }
@@ -473,9 +487,10 @@ app.post('/api/pronosticos', async (req, res) => {
 });
 
 function convertir12a24(hora12) {
-    const partes = hora12.split(' ');
+    if (!hora12) return '12:00';
+    const partes = hora12.trim().split(' ');
     let [h, m] = partes[0].split(':');
-    const ampm = partes[1];
+    const ampm = partes[1] ? partes[1].toUpperCase() : '';
     if (ampm === 'PM' && h !== '12') h = parseInt(h) + 12;
     if (ampm === 'AM' && h === '12') h = '00';
     return `${String(h).padStart(2, '0')}:${m || '00'}`;
@@ -484,9 +499,9 @@ function convertir12a24(hora12) {
 app.post('/api/partidos/resultado', async (req, res) => {
     const { partido_id, carreras_visitante, carreras_local } = req.body;
     try {
-        await pool.query('UPDATE partidos SET estado = \$1, carreras_visitante = \$2, carreras_local = \$3 WHERE id = \$4', ['FINALIZADO', carreras_visitante, carreras_local, partido_id]);
+        await pool.query('UPDATE partidos SET estado = $1, carreras_visitante = $2, carreras_local = $3 WHERE id = $4', ['FINALIZADO', carreras_visitante, carreras_local, partido_id]);
         
-        const pronosticosRes = await pool.query('SELECT * FROM pronosticos WHERE partido_id = \$1', [partido_id]);
+        const pronosticosRes = await pool.query('SELECT * FROM pronosticos WHERE partido_id = $1', [partido_id]);
 
         for (let p of pronosticosRes.rows) {
             let puntos = 0;
@@ -504,7 +519,7 @@ app.post('/api/partidos/resultado', async (req, res) => {
                     puntos = 2;
                 }
             }
-            await pool.query('UPDATE pronosticos SET puntos_obtenidos = \$1 WHERE id = \$2', [puntos, p.id]);
+            await pool.query('UPDATE pronosticos SET puntos_obtenidos = $1 WHERE id = $2', [puntos, p.id]);
         }
 
         const totalesRes = await pool.query(`
@@ -516,7 +531,7 @@ app.post('/api/partidos/resultado', async (req, res) => {
 
         for (let r of totalesRes.rows) {
             await pool.query(
-                'UPDATE miembros_grupo SET puntos_acumulados = \$1 WHERE grupo_id = \$2 AND usuario_id = \$3', 
+                'UPDATE miembros_grupo SET puntos_acumulados = $1 WHERE grupo_id = $2 AND usuario_id = $3', 
                 [r.total, r.grupo_id, r.usuario_id]
             );
         }
@@ -530,16 +545,13 @@ app.post('/api/partidos/resultado', async (req, res) => {
 app.post('/api/admin/puntos', async (req, res) => {
     const { grupo_id, usuario_id, nuevos_puntos } = req.body;
     try {
-        await pool.query('INSERT INTO miembros_grupo (grupo_id, usuario_id, puntos_acumulados) VALUES (\$1, \$2, \$3) ON CONFLICT (grupo_id, usuario_id) DO UPDATE SET puntos_acumulados = \$3', [grupo_id, usuario_id, nuevos_puntos]);
+        await pool.query('INSERT INTO miembros_grupo (grupo_id, usuario_id, puntos_acumulados) VALUES ($1, $2, $3) ON CONFLICT (grupo_id, usuario_id) DO UPDATE SET puntos_acumulados = $3', [grupo_id, usuario_id, nuevos_puntos]);
         res.json({ status: 'ok' });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-// =========================================================================
-// CORREGIDO: Consulta del Leaderboard leyendo puntos directos sin duplicar
-// =========================================================================
 app.get('/api/leaderboard/:grupoId', async (req, res) => {
     const grupoId = req.params.grupoId;
     const query = `

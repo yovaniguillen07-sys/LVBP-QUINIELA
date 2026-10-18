@@ -761,7 +761,6 @@ async function renderGames() {
     });
 }
 
-// NUEVO: Función para enviar recordatorio a WhatsApp con el link de la liga seleccionada
 function enviarRecordatorioWhatsApp() {
     const selectGame = document.getElementById('group-select-game');
     const grupoId = selectGame ? selectGame.value : null;
