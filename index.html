@@ -55,7 +55,7 @@
         <div class="user-profile" style="display: flex; align-items: center; gap: 0.3rem; flex-wrap: wrap;">
             <div id="user-avatar-container" style="display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; border-radius:50%; background:var(--primary); color:#fff; font-weight:bold; font-size:0.85rem;"></div>
             <span id="user-display-name">Invitado</span>
-            <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem; background: #0284c7; color: #fff;" onclick="solicitarPermisoNotificaciones()" title="Activar notificaciones push">
+            <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem; background: #0284c7; color: #fff;" onclick="suscribirNotificacionesPush()" title="Activar notificaciones push">
                 <i class="fa-solid fa-bell"></i> Alertas
             </button>
             <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;" onclick="abrirModalPerfil()">Perfil</button>
@@ -73,14 +73,17 @@
             <button class="nav-btn" onclick="switchTab('games-tab')">
                 <i class="fa-solid fa-calendar-days"></i> Partidos & Pronósticos
             </button>
-            <button class="nav-btn" onclick="switchTab('standings-tab')" onclick="loadStandings()">
-                <i class="fa-solid fa-table-list"></i> Posiciones LVBP
+            <button class="nav-btn" onclick="switchTab('standings-tab'); loadStandings();">
+                <i class="fa-solid fa-table-list"></i> Tabla LVBP
             </button>
             <button class="nav-btn" onclick="switchTab('leaderboard-tab')">
                 <i class="fa-solid fa-trophy"></i> Tabla de Posiciones
             </button>
             <button class="nav-btn" onclick="switchTab('history-tab')">
                 <i class="fa-solid fa-clock-rotate-left"></i> Historial de Puntos
+            </button>
+            <button class="nav-btn" onclick="switchTab('cards-tab'); cargarCartasColeccionables();">
+                <i class="fa-solid fa-clone"></i> Cartas Secretas
             </button>
             <button class="nav-btn" onclick="switchTab('championships-tab')">
                 <i class="fa-solid fa-award"></i> Salón de Campeones
@@ -120,7 +123,7 @@
                 <div class="games-list" id="games-container"></div>
             </div>
 
-            <!-- NUEVA TAB: POSICIONES LVBP -->
+            <!-- TAB: TABLA LVBP (Renombrado y actualizado) -->
             <div id="standings-tab" class="tab-content">
                 <div class="section-header">
                     <h2>Tabla de Posiciones - Temporada Regular LVBP</h2>
@@ -172,18 +175,24 @@
                 </div>
             </div>
 
-            <!-- TAB 4: HISTORIAL DE PUNTOS -->
+            <!-- TAB 4: HISTORIAL DE PUNTOS CON FILTRO DE RANGO DE FECHAS -->
             <div id="history-tab" class="tab-content">
                 <div class="section-header">
                     <h2>Historial de Puntos por Partido</h2>
-                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
                         <select id="group-filter-history" onchange="loadHistory()"></select>
-                        <select id="filter-history-fecha" onchange="loadHistory()" style="padding: 0.5rem; background: var(--card-bg); border: 1px solid var(--border); color: var(--text); border-radius: 6px;">
-                            <option value="">Todas las Fechas</option>
-                        </select>
-                        <select id="filter-history-jugador" onchange="loadHistory()" style="padding: 0.5rem; background: var(--card-bg); border: 1px solid var(--border); color: var(--text); border-radius: 6px;">
+                        <div style="display: flex; align-items: center; gap: 0.3rem; background: var(--card-bg); border: 1px solid var(--border); padding: 0.2rem 0.5rem; border-radius: 6px;">
+                            <span style="font-size:0.8rem; color:var(--text-muted);">Desde:</span>
+                            <input type="date" id="filter-date-from" onchange="aplicarFiltrosHistorial()" style="background:transparent; border:none; color:var(--text); font-size:0.85rem;">
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.3rem; background: var(--card-bg); border: 1px solid var(--border); padding: 0.2rem 0.5rem; border-radius: 6px;">
+                            <span style="font-size:0.8rem; color:var(--text-muted);">Hasta:</span>
+                            <input type="date" id="filter-date-to" onchange="aplicarFiltrosHistorial()" style="background:transparent; border:none; color:var(--text); font-size:0.85rem;">
+                        </div>
+                        <select id="filter-history-jugador" onchange="aplicarFiltrosHistorial()" style="padding: 0.5rem; background: var(--card-bg); border: 1px solid var(--border); color: var(--text); border-radius: 6px;">
                             <option value="">Todos los Jugadores</option>
                         </select>
+                        <button class="btn btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;" onclick="limpiarFiltrosHistorial()">Limpiar</button>
                     </div>
                 </div>
                 <div class="table-container">
@@ -201,6 +210,19 @@
                         <tbody id="history-body"></tbody>
                     </table>
                 </div>
+            </div>
+
+            <!-- NUEVA TAB: CARTAS SECRETAS -->
+            <div id="cards-tab" class="tab-content">
+                <div class="section-header">
+                    <h2>Cartas Coleccionables Secretas (Ganadores Semanales)</h2>
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        <select id="group-filter-cards" onchange="cargarCartasColeccionables()"></select>
+                        <button id="btn-admin-crear-carta" class="btn btn-primary" style="display:none;" onclick="abrirModalCrearCarta()"><i class="fa-solid fa-plus"></i> Crear Carta Semanal</button>
+                    </div>
+                </div>
+                <p class="subtitle" style="margin-bottom: 1rem;">Las cartas del ganador semanal permanecen ocultas (boca abajo) hasta que sean reveladas oficialmente.</p>
+                <div id="cards-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem;"></div>
             </div>
 
             <!-- TAB 5: SALÓN DE CAMPEONES -->
@@ -241,7 +263,7 @@
         </section>
     </main>
 
-    <!-- Modal de Ajuste Admin de Standings -->
+    <!-- Modales -->
     <div id="admin-standings-modal" class="modal">
         <div class="modal-content" style="max-width: 600px;">
             <span class="close-btn" onclick="closeModal('admin-standings-modal')">&times;</span>
@@ -254,7 +276,31 @@
         </div>
     </div>
 
-    <!-- Otros Modales -->
+    <div id="create-card-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeModal('create-card-modal')">&times;</span>
+            <h3>Crear Carta Única Semanal</h3>
+            <form onsubmit="handleCrearCarta(event)">
+                <div class="form-group"><label>Título / Nombre de la Carta</label><input type="text" id="card-name" required placeholder="Ej. MVP Semana 1"></div>
+                <div class="form-group"><label>Ganador Original (Otorgar a)</label><select id="card-winner-user" required style="padding:0.5rem; background:var(--bg-color); border:1px solid var(--border); color:var(--text); border-radius:6px;"></select></div>
+                <button type="submit" class="btn btn-primary btn-block">Crear Carta (Boca Abajo)</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="transfer-card-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeModal('transfer-card-modal')">&times;</span>
+            <h3>Transferir Carta Coleccionable</h3>
+            <input type="hidden" id="transfer-card-id">
+            <p id="transfer-card-title" style="color:var(--accent); font-weight:bold; margin-bottom:1rem;"></p>
+            <form onsubmit="handleTransferirCarta(event)">
+                <div class="form-group"><label>Seleccionar Usuario Destino</label><select id="transfer-user-target" required style="padding:0.5rem; background:var(--bg-color); border:1px solid var(--border); color:var(--text); border-radius:6px;"></select></div>
+                <button type="submit" class="btn btn-primary btn-block">Confirmar Transferencia</button>
+            </form>
+        </div>
+    </div>
+
     <div id="join-group-modal" class="modal">
         <div class="modal-content">
             <span class="close-btn" onclick="closeModal('join-group-modal')">&times;</span>
@@ -284,7 +330,7 @@
         <div class="modal-content" style="max-width: 500px;">
             <span class="close-btn" onclick="closeModal('ver-pronosticos-modal')">&times;</span>
             <h3 id="ver-pred-match-title">Pronósticos del Partido</h3>
-            <p class="subtitle" style="margin-bottom: 1rem;">Predicciones de los usuarios de esta liga (Partido Cerrado / Finalizado)</p>
+            <p class="subtitle" style="margin-bottom: 1rem;">Predicciones de los usuarios de esta liga</p>
             <div class="table-container" style="max-height: 300px; overflow-y: auto;">
                 <table class="leaderboard-table">
                     <thead>
@@ -317,7 +363,6 @@
         <div class="modal-content" style="max-width: 650px;">
             <span class="close-btn" onclick="closeModal('admin-users-modal')">&times;</span>
             <h3>Panel de Administración General</h3>
-            
             <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); padding: 1rem; border-radius: 6px; margin: 1rem 0;">
                 <h4 style="margin-bottom: 0.5rem; color: var(--accent);"><i class="fa-solid fa-database"></i> Respaldos del Servidor</h4>
                 <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
@@ -328,7 +373,6 @@
                     <button type="submit" class="btn btn-secondary" style="background: var(--danger);"><i class="fa-solid fa-upload"></i> Subir y Restaurar</button>
                 </form>
             </div>
-
             <div style="margin: 1rem 0;">
                 <h4>Crear Nuevo Usuario</h4>
                 <form onsubmit="handleAdminCrearUsuario(event)" style="display: flex; gap: 0.5rem; margin-top: 0.5rem; flex-wrap: wrap;">
@@ -362,14 +406,16 @@
     </div>
 
     <div id="profile-modal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content" style="max-width: 550px;">
             <span class="close-btn" onclick="closeModal('profile-modal')">&times;</span>
-            <h3>Editar Mi Perfil</h3>
-            <form onsubmit="handleActualizarPerfil(event)">
+            <h3>Mi Perfil & Vitrina de Cartas</h3>
+            <form onsubmit="handleActualizarPerfil(event)" style="margin-bottom: 1rem;">
                 <div class="form-group"><label>Nuevo Nombre (Alias)</label><input type="text" id="edit-username" required placeholder="Tu nuevo alias"></div>
                 <div class="form-group"><label>Nueva Contraseña</label><input type="password" id="edit-password" required placeholder="Nueva contraseña"></div>
                 <button type="submit" class="btn btn-primary btn-block">Guardar Cambios</button>
             </form>
+            <h4 style="color:var(--accent); margin-bottom:0.5rem;"><i class="fa-solid fa-clone"></i> Mis Cartas Ganadas</h4>
+            <div id="user-profile-cards-grid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); gap:0.75rem; max-height:200px; overflow-y:auto;"></div>
         </div>
     </div>
 
@@ -402,17 +448,14 @@
             <h3 id="game-modal-title">Añadir Partido</h3>
             <form onsubmit="handleGuardarPartido(event)">
                 <input type="hidden" id="edit-game-id">
-                
                 <div class="form-group">
                     <label>Equipo Visitante</label>
                     <input type="text" id="new-vis" list="lvbp-teams" required placeholder="Selecciona o escribe el visitante">
                 </div>
-                
                 <div class="form-group">
                     <label>Equipo Local</label>
                     <input type="text" id="new-loc" list="lvbp-teams" required placeholder="Selecciona o escribe el local">
                 </div>
-
                 <datalist id="lvbp-teams">
                     <option value="Leones del Caracas">
                     <option value="Navegantes del Magallanes">
@@ -423,9 +466,7 @@
                     <option value="Caribes de Anzoátegui">
                     <option value="Águilas del Zulia">
                 </datalist>
-
                 <div class="form-group"><label>Fecha del Partido</label><input type="date" id="new-fecha" required style="padding:0.75rem; background:var(--bg-color); border:1px solid var(--border); color:var(--text); border-radius:6px; width:100%;"></div>
-                
                 <div class="form-group">
                     <label>Hora del Partido</label>
                     <div style="display: flex; gap: 0.5rem;">
@@ -436,12 +477,10 @@
                         </select>
                     </div>
                 </div>
-
                 <div class="form-group">
                     <label>Estadio</label>
                     <input type="text" id="new-estadio" list="lvbp-stadiums" required placeholder="Selecciona o escribe el estadio">
                 </div>
-
                 <datalist id="lvbp-stadiums">
                     <option value="Estadio Monumental Simón Bolívar">
                     <option value="Estadio Universitario de Caracas">
@@ -453,7 +492,6 @@
                     <option value="Estadio José Pérez Colmenares">
                     <option value="Estadio Nueva Esparta">
                 </datalist>
-
                 <button type="submit" class="btn btn-primary btn-block">Guardar Partido</button>
             </form>
         </div>

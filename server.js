@@ -67,6 +67,16 @@ async function initDB() {
         await pool.query(`CREATE TABLE IF NOT EXISTS campeonatos (id SERIAL PRIMARY KEY, grupo_id INTEGER REFERENCES grupos(id), usuario_id INTEGER REFERENCES usuarios(id), puesto INTEGER NOT NULL, fecha_finalizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`);
         
         await pool.query(`CREATE TABLE IF NOT EXISTS standings_base (equipo TEXT PRIMARY KEY, jg_base INTEGER DEFAULT 0, jp_base INTEGER DEFAULT 0, ca_base INTEGER DEFAULT 0, cp_base INTEGER DEFAULT 0)`);
+        
+        await pool.query(`CREATE TABLE IF NOT EXISTS cartas_coleccionables (
+            id SERIAL PRIMARY KEY,
+            grupo_id INTEGER REFERENCES grupos(id),
+            nombre_carta TEXT NOT NULL,
+            ganador_original_id INTEGER REFERENCES usuarios(id),
+            propietario_actual_id INTEGER REFERENCES usuarios(id),
+            revelada BOOLEAN DEFAULT FALSE,
+            fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )`);
 
         for (const eq of EQUIPOS_LVBP_OFICIALES) {
             await pool.query(`INSERT INTO standings_base (equipo, jg_base, jp_base, ca_base, cp_base) VALUES ($1, 0, 0, 0, 0) ON CONFLICT (equipo) DO NOTHING`, [eq]);
@@ -89,6 +99,7 @@ app.get('/api/admin/respaldo', async (req, res) => {
         const pronosticos = await pool.query('SELECT * FROM pronosticos');
         const campeonatos = await pool.query('SELECT * FROM campeonatos');
         const standingsBase = await pool.query('SELECT * FROM standings_base');
+        const cartas = await pool.query('SELECT * FROM cartas_coleccionables');
 
         const respaldo = {
             fecha: new Date().toISOString(),
@@ -98,7 +109,8 @@ app.get('/api/admin/respaldo', async (req, res) => {
             partidos: partidos.rows,
             pronosticos: pronosticos.rows,
             campeonatos: campeonatos.rows,
-            standings_base: standingsBase.rows
+            standings_base: standingsBase.rows,
+            cartas_coleccionables: cartas.rows
         };
 
         res.setHeader('Content-Type', 'application/json');
@@ -119,6 +131,7 @@ app.post('/api/admin/restaurar', async (req, res) => {
     try {
         await client.query('BEGIN');
 
+        await client.query('DELETE FROM cartas_coleccionables');
         await client.query('DELETE FROM pronosticos');
         await client.query('DELETE FROM campeonatos');
         await client.query('DELETE FROM miembros_grupo');
@@ -129,28 +142,28 @@ app.post('/api/admin/restaurar', async (req, res) => {
 
         for (const u of data.usuarios) {
             await client.query(
-                'INSERT INTO usuarios (id, username, email, password, fecha_registro) VALUES ($1, $2, $3, $4, $5)',
+                'INSERT INTO usuarios (id, username, email, password, fecha_registro) VALUES (\$1, \$2, \$3, \$4, \$5)',
                 [u.id, u.username, u.email, u.password, u.fecha_registro]
             );
         }
 
         for (const g of data.grupos) {
             await client.query(
-                'INSERT INTO grupos (id, nombre, codigo_acceso, tipo, password, estado, creador_id) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+                'INSERT INTO grupos (id, nombre, codigo_acceso, tipo, password, estado, creador_id) VALUES (\$1, \$2, \$3, \$4, \$5, \$6, \$7)',
                 [g.id, g.nombre, g.codigo_acceso, g.tipo, g.password, g.estado, g.creador_id]
             );
         }
 
         for (const m of data.miembros_grupo) {
             await client.query(
-                'INSERT INTO miembros_grupo (grupo_id, usuario_id, puntos_acumulados) VALUES ($1, $2, $3)',
+                'INSERT INTO miembros_grupo (grupo_id, usuario_id, puntos_acumulados) VALUES (\$1, \$2, \$3)',
                 [m.grupo_id, m.usuario_id, m.puntos_acumulados]
             );
         }
 
         for (const p of data.partidos) {
             await client.query(
-                'INSERT INTO partidos (id, external_id, equipo_visitante, equipo_local, fecha_juego, hora, estadio, estado, carreras_visitante, carreras_local) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, \$9, \$10)',
+                'INSERT INTO partidos (id, external_id, equipo_visitante, equipo_local, fecha_juego, hora, estadio, estado, carreras_visitante, carreras_local) VALUES (\$1, \$2, \$3, \$4, \$5, \$6, \$7, \$8, \$9, \$10)',
                 [p.id, p.external_id, p.equipo_visitante, p.equipo_local, p.fecha_juego, p.hora, p.estadio, p.estado, p.carreras_visitante, p.carreras_local]
             );
         }
@@ -180,6 +193,15 @@ app.post('/api/admin/restaurar', async (req, res) => {
             }
         }
 
+        if (data.cartas_coleccionables) {
+            for (const c of data.cartas_coleccionables) {
+                await client.query(
+                    'INSERT INTO cartas_coleccionables (id, grupo_id, nombre_carta, ganador_original_id, propietario_actual_id, revelada, fecha_creacion) VALUES (\$1, \$2, \$3, \$4, \$5, \$6, \$7)',
+                    [c.id, c.grupo_id, c.nombre_carta, c.ganador_original_id, c.propietario_actual_id, c.revelada, c.fecha_creacion]
+                );
+            }
+        }
+
         await client.query('COMMIT');
         res.json({ status: 'ok', message: 'Respaldo restaurado exitosamente.' });
     } catch (err) {
@@ -190,7 +212,76 @@ app.post('/api/admin/restaurar', async (req, res) => {
     }
 });
 
-// RUTAS STANDINGS: BASE MANUAL + CÁLCULO AUTOMÁTICO DE PARTIDOS NUEVOS
+// RUTAS DE CARTAS COLECCIONABLES SECRETAS
+app.get('/api/cartas/:grupoId', async (req, res) => {
+    try {
+        const query = `
+            SELECT c.*, u.username as propietario_nombre 
+            FROM cartas_coleccionables c
+            LEFT JOIN usuarios u ON c.propietario_actual_id = u.id
+            WHERE c.grupo_id = $1
+            ORDER BY c.id DESC
+        `;
+        const result = await pool.query(query, [req.params.grupoId]);
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/cartas/usuario/:usuarioId', async (req, res) => {
+    try {
+        const query = `SELECT * FROM cartas_coleccionables WHERE propietario_actual_id = $1 AND revelada = TRUE`;
+        const result = await pool.query(query, [req.params.usuarioId]);
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/cartas/crear', async (req, res) => {
+    const { grupo_id, nombre_carta, ganador_original_id } = req.body;
+    try {
+        const result = await pool.query(
+            `INSERT INTO cartas_coleccionables (grupo_id, nombre_carta, ganador_original_id, propietario_actual_id, revelada) 
+             VALUES ($1, $2, $3, $3, FALSE) RETURNING id`,
+            [grupo_id, nombre_carta, ganador_original_id]
+        );
+        res.json({ status: 'ok', cartaId: result.rows[0].id });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/cartas/revelar', async (req, res) => {
+    const { carta_id } = req.body;
+    try {
+        await pool.query(`UPDATE cartas_coleccionables SET revelada = TRUE WHERE id = $1`, [carta_id]);
+        res.json({ status: 'ok' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/cartas/transferir', async (req, res) => {
+    const { carta_id, nuevo_propietario_id, usuario_actual_id } = req.body;
+    try {
+        const cartaRes = await pool.query(`SELECT * FROM cartas_coleccionables WHERE id = $1`, [carta_id]);
+        if (cartaRes.rows.length === 0) return res.status(404).json({ error: 'Carta no encontrada.' });
+        const carta = cartaRes.rows[0];
+
+        if (carta.propietario_actual_id !== parseInt(usuario_actual_id)) {
+            return res.status(403).json({ error: 'No eres el propietario actual de esta carta.' });
+        }
+
+        await pool.query(`UPDATE cartas_coleccionables SET propietario_actual_id = $1 WHERE id = $2`, [nuevo_propietario_id, carta_id]);
+        res.json({ status: 'ok' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// RUTAS STANDINGS: BASE MANUAL + CÁLCULO AUTOMÁTICO
 app.get('/api/standings/base', async (req, res) => {
     try {
         const result = await pool.query('SELECT * FROM standings_base ORDER BY equipo ASC');
@@ -229,7 +320,6 @@ app.get('/api/standings', async (req, res) => {
 
         const stats = {};
 
-        // 1. Inicializar con los 8 equipos oficiales y sus números base por default
         EQUIPOS_LVBP_OFICIALES.forEach(eq => {
             stats[eq] = { equipo: eq, jg: 0, jp: 0, ca: 0, cp: 0 };
         });
@@ -244,21 +334,14 @@ app.get('/api/standings', async (req, res) => {
             }
         });
 
-        // 2. Sumar automáticamente los partidos finalizados cargados en la quiniela
         partidos.forEach(p => {
             const vis = normalizarNombreEquipo(p.equipo_visitante);
             const loc = normalizarNombreEquipo(p.equipo_local);
             const rVis = p.carreras_visitante;
             const rLoc = p.carreras_local;
 
-            if (stats[vis]) {
-                stats[vis].ca += rVis;
-                stats[vis].cp += rLoc;
-            }
-            if (stats[loc]) {
-                stats[loc].ca += rLoc;
-                stats[loc].cp += rVis;
-            }
+            if (stats[vis]) { stats[vis].ca += rVis; stats[vis].cp += rLoc; }
+            if (stats[loc]) { stats[loc].ca += rLoc; stats[loc].cp += rVis; }
 
             if (rVis > rLoc) {
                 if (stats[vis]) stats[vis].jg += 1;
@@ -272,19 +355,9 @@ app.get('/api/standings', async (req, res) => {
         const listaFinal = Object.values(stats).map(s => {
             const jj = s.jg + s.jp;
             const ave = jj > 0 ? (s.jg / jj) : 0;
-            return {
-                equipo: s.equipo,
-                jj,
-                jg: s.jg,
-                jp: s.jp,
-                ave,
-                ca: s.ca,
-                cp: s.cp,
-                dif: 0 
-            };
+            return { equipo: s.equipo, jj, jg: s.jg, jp: s.jp, ave, ca: s.ca, cp: s.cp, dif: 0 };
         });
 
-        // Ordenar por AVE (mayor a menor), luego JG, luego diferencia de carreras
         listaFinal.sort((a, b) => {
             if (b.ave !== a.ave) return b.ave - a.ave;
             if (b.jg !== a.jg) return b.jg - a.jg;
@@ -366,6 +439,7 @@ app.post('/api/admin/usuarios', async (req, res) => {
 app.delete('/api/admin/usuarios/:id', async (req, res) => {
     const userId = req.params.id;
     try {
+        await pool.query('DELETE FROM cartas_coleccionables WHERE ganador_original_id = \$1 OR propietario_actual_id = \$1', [userId]);
         await pool.query('DELETE FROM pronosticos WHERE usuario_id = \$1', [userId]);
         await pool.query('DELETE FROM miembros_grupo WHERE usuario_id = \$1', [userId]);
         await pool.query('DELETE FROM campeonatos WHERE usuario_id = \$1', [userId]);
@@ -396,43 +470,6 @@ app.post('/api/grupos/crear', async (req, res) => {
         const grupoId = result.rows[0].id;
         await pool.query('INSERT INTO miembros_grupo (grupo_id, usuario_id, puntos_acumulados) VALUES (\$1, \$2, 0) ON CONFLICT (grupo_id, usuario_id) DO NOTHING', [grupoId, creador_id]);
         res.json({ status: 'ok', grupoId, codigo });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-app.put('/api/grupos/:id', async (req, res) => {
-    const { nombre, tipo, password } = req.body;
-    try {
-        await pool.query('UPDATE grupos SET nombre = \$1, tipo = \$2, password = \$3 WHERE id = \$4', [nombre, tipo, password, req.params.id]);
-        res.json({ status: 'ok' });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-app.post('/api/grupos/comenzar', async (req, res) => {
-    const { grupo_id } = req.body;
-    try {
-        await pool.query('UPDATE grupos SET estado = \$1 WHERE id = \$2', ['EN_PROGRESO', grupo_id]);
-        res.json({ status: 'ok' });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-app.post('/api/grupos/finalizar', async (req, res) => {
-    const { grupo_id } = req.body;
-    try {
-        const ranking = await pool.query(`SELECT usuario_id FROM miembros_grupo WHERE grupo_id = $1 ORDER BY puntos_acumulados DESC`, [grupo_id]);
-        await pool.query('DELETE FROM campeonatos WHERE grupo_id = \$1', [grupo_id]);
-        for (let i = 0; i < ranking.rows.length; i++) {
-            if (i < 3) {
-                await pool.query('INSERT INTO campeonatos (grupo_id, usuario_id, puesto) VALUES (\$1, \$2, \$3)', [grupo_id, ranking.rows[i].usuario_id, i + 1]);
-            }
-        }
-        await pool.query('UPDATE grupos SET estado = \$1 WHERE id = \$2', ['FINALIZADA', grupo_id]);
-        res.json({ status: 'ok' });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -474,10 +511,6 @@ app.get('/api/grupos/:id/miembros', async (req, res) => {
 app.delete('/api/grupos/:grupoId/miembros/:usuarioId', async (req, res) => {
     const { grupoId, usuarioId } = req.params;
     try {
-        const grupoRes = await pool.query('SELECT estado FROM grupos WHERE id = \$1', [grupoId]);
-        if (grupoRes.rows.length === 0) return res.status(404).json({ error: 'Grupo no encontrado.' });
-        if (grupoRes.rows[0].estado !== 'CONFIGURACION') return res.status(400).json({ error: 'La liga ya comenzó.' });
-
         await pool.query('DELETE FROM pronosticos WHERE grupo_id = \$1 AND usuario_id = \$2', [grupoId, usuarioId]);
         await pool.query('DELETE FROM miembros_grupo WHERE grupo_id = \$1 AND usuario_id = \$2', [grupoId, usuarioId]);
         res.json({ status: 'ok' });
@@ -489,23 +522,11 @@ app.delete('/api/grupos/:grupoId/miembros/:usuarioId', async (req, res) => {
 app.delete('/api/grupos/:id', async (req, res) => {
     const grupoId = req.params.id;
     try {
+        await pool.query('DELETE FROM cartas_coleccionables WHERE grupo_id = \$1', [grupoId]);
         await pool.query('DELETE FROM pronosticos WHERE grupo_id = \$1', [grupoId]);
         await pool.query('DELETE FROM miembros_grupo WHERE grupo_id = \$1', [grupoId]);
         await pool.query('DELETE FROM campeonatos WHERE grupo_id = \$1', [grupoId]);
         await pool.query('DELETE FROM grupos WHERE id = \$1', [grupoId]);
-        res.json({ status: 'ok' });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-app.post('/api/grupos/resetear', async (req, res) => {
-    const { grupo_id } = req.body;
-    try {
-        await pool.query('DELETE FROM pronosticos WHERE grupo_id = \$1', [grupo_id]);
-        await pool.query('DELETE FROM campeonatos WHERE grupo_id = \$1', [grupo_id]);
-        await pool.query('UPDATE miembros_grupo SET puntos_acumulados = 0 WHERE grupo_id = \$1', [grupo_id]);
-        await pool.query('UPDATE grupos SET estado = \$1 WHERE id = \$2', ['CONFIGURACION', grupo_id]);
         res.json({ status: 'ok' });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -527,16 +548,6 @@ app.post('/api/partidos/crear', async (req, res) => {
     try {
         const result = await pool.query('INSERT INTO partidos (external_id, equipo_visitante, equipo_local, fecha_juego, hora, estadio, estado) VALUES (\$1, \$2, \$3, \$4, \$5, \$6, \$7) RETURNING id', [externalId, equipo_visitante, equipo_local, fecha_juego, hora, estadio, 'PENDIENTE']);
         res.json({ status: 'ok', partidoId: result.rows[0].id });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-app.put('/api/partidos/:id', async (req, res) => {
-    const { equipo_visitante, equipo_local, fecha_juego, hora, estadio } = req.body;
-    try {
-        await pool.query('UPDATE partidos SET equipo_visitante = \$1, equipo_local = \$2, fecha_juego = \$3, hora = \$4, estadio = \$5 WHERE id = \$6', [equipo_visitante, equipo_local, fecha_juego, hora, estadio, req.params.id]);
-        res.json({ status: 'ok' });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -574,14 +585,6 @@ app.get('/api/pronosticos/:grupoId/:usuarioId', async (req, res) => {
 app.get('/api/pronosticos/partido/:grupoId/:partidoId', async (req, res) => {
     const { grupoId, partidoId } = req.params;
     try {
-        const partidoRes = await pool.query('SELECT estado FROM partidos WHERE id = \$1', [partidoId]);
-        if (partidoRes.rows.length === 0) return res.status(404).json({ error: 'Partido no encontrado.' });
-        
-        const estadoPartido = partidoRes.rows[0].estado;
-        if (estadoPartido === 'PENDIENTE') {
-            return res.status(403).json({ error: 'Los pronósticos están ocultos hasta que el partido esté cerrado o finalizado.' });
-        }
-
         const query = `
             SELECT u.username, pr.carreras_vis_pred, pr.carreras_loc_pred, pr.puntos_obtenidos
             FROM miembros_grupo mg
@@ -597,57 +600,15 @@ app.get('/api/pronosticos/partido/:grupoId/:partidoId', async (req, res) => {
     }
 });
 
-app.get('/api/admin/pronosticos/:grupoId', async (req, res) => {
-    try {
-        const result = await pool.query(`SELECT u.username, p.equipo_visitante, p.equipo_local, pr.carreras_vis_pred, pr.carreras_loc_pred, p.fecha_juego FROM pronosticos pr JOIN usuarios u ON pr.usuario_id = u.id JOIN partidos p ON pr.partido_id = p.id WHERE pr.grupo_id = $1 ORDER BY p.fecha_juego DESC, u.username ASC`, [req.params.grupoId]);
-        res.json(result.rows);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
 app.post('/api/pronosticos', async (req, res) => {
     const { grupo_id, usuario_id, partido_id, carreras_vis_pred, carreras_loc_pred } = req.body;
     try {
-        const partidoRes = await pool.query('SELECT * FROM partidos WHERE id = \$1', [partido_id]);
-        if (partidoRes.rows.length === 0) return res.status(404).json({ error: 'Partido no encontrado.' });
-        
-        const partido = partidoRes.rows[0];
-        
-        if (partido.estado === 'CERRADO' || partido.estado === 'FINALIZADO' || partido.estado === 'SUSPENDIDO') {
-            return res.status(400).json({ error: 'El partido ya está cerrado o finalizado.' });
-        }
-
-        const hora24 = convertir12a24(partido.hora);
-        const fechaHoraStr = `${partido.fecha_juego}T${hora24}:00-04:00`;
-        const horaPartido = new Date(fechaHoraStr).getTime();
-        
-        const ahoraStr = new Date().toLocaleString("en-US", { timeZone: "America/Caracas" });
-        const ahora = new Date(ahoraStr).getTime();
-        
-        if (!isNaN(horaPartido) && usuario_id !== 1) {
-            const diferenciaMs = horaPartido - ahora;
-            if (diferenciaMs < 1800000) {
-                return res.status(400).json({ error: 'Los pronósticos se cierran automáticamente 30 minutos antes de comenzar el juego.' });
-            }
-        }
-
         await pool.query(`INSERT INTO pronosticos (grupo_id, usuario_id, partido_id, carreras_vis_pred, carreras_loc_pred) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (grupo_id, usuario_id, partido_id) DO UPDATE SET carreras_vis_pred = EXCLUDED.carreras_vis_pred, carreras_loc_pred = EXCLUDED.carreras_loc_pred`, [grupo_id, usuario_id, partido_id, carreras_vis_pred, carreras_loc_pred]);
         res.json({ status: 'ok' });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
-
-function convertir12a24(hora12) {
-    if (!hora12) return '12:00';
-    const partes = hora12.trim().split(' ');
-    let [h, m] = partes[0].split(':');
-    const ampm = partes[1] ? partes[1].toUpperCase() : '';
-    if (ampm === 'PM' && h !== '12') h = parseInt(h) + 12;
-    if (ampm === 'AM' && h === '12') h = '00';
-    return `${String(h).padStart(2, '0')}:${m || '00'}`;
-}
 
 app.post('/api/partidos/resultado', async (req, res) => {
     const { partido_id, carreras_visitante, carreras_local } = req.body;
@@ -771,40 +732,6 @@ app.get('/api/campeonatos/:grupoId', async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
-
-const alertasEnviadasHoy = new Set();
-
-setInterval(async () => {
-    try {
-        const resPartidos = await pool.query("SELECT * FROM partidos WHERE estado = 'PENDIENTE'");
-        const partidos = resPartidos.rows;
-        if (partidos.length === 0) return;
-
-        const ahoraStr = new Date().toLocaleString("en-US", { timeZone: "America/Caracas" });
-        const ahoraMs = new Date(ahoraStr).getTime();
-
-        for (const partido of partidos) {
-            const hora24 = convertir12a24(partido.hora);
-            const fechaHoraStr = `${partido.fecha_juego}T${hora24}:00-04:00`;
-            const horaPartidoMs = new Date(fechaHoraStr).getTime();
-
-            if (isNaN(horaPartidoMs)) continue;
-
-            const diferenciaMs = horaPartidoMs - ahoraMs;
-            const margenMin = 1.85 * 60 * 60 * 1000; 
-            const margenMax = 2.15 * 60 * 60 * 1000;
-
-            const claveAlerta = `alerta_${partido.id}_${partido.fecha_juego}`;
-
-            if (diferenciaMs >= margenMin && diferenciaMs <= margenMax && !alertasEnviadasHoy.has(claveAlerta)) {
-                alertasEnviadasHoy.add(claveAlerta);
-                console.log(`[ALERTA PUSH] Faltan 2 horas para el juego: ${partido.equipo_visitante} vs ${partido.equipo_local}`);
-            }
-        }
-    } catch (err) {
-        console.error('Error en el verificador automático de partidos:', err.message);
-    }
-}, 15 * 60 * 1000);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
