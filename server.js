@@ -499,6 +499,33 @@ app.post('/api/grupos/crear', async (req, res) => {
     }
 });
 
+app.post('/api/grupos/estado', async (req, res) => {
+    const { grupo_id, estado } = req.body;
+    try {
+        await pool.query('UPDATE grupos SET estado = \$1 WHERE id = \$2', [estado, grupo_id]);
+        
+        if (estado === 'FINALIZADA') {
+            const liderRes = await pool.query(`
+                SELECT usuario_id FROM miembros_grupo 
+                WHERE grupo_id = $1 
+                ORDER BY puntos_acumulados DESC LIMIT 1
+            `, [grupo_id]);
+            
+            if (liderRes.rows.length > 0) {
+                const ganadorId = liderRes.rows[0].usuario_id;
+                await pool.query(
+                    `INSERT INTO campeonatos (grupo_id, usuario_id, puesto) VALUES ($1, $2, 1) ON CONFLICT DO NOTHING`,
+                    [grupo_id, ganadorId]
+                );
+            }
+        }
+
+        res.json({ status: 'ok' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.post('/api/grupos/unirse', async (req, res) => {
     const { codigo_acceso, password, usuario_id } = req.body;
     try {

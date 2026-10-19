@@ -451,11 +451,38 @@ function renderGroups() {
                 <button class="btn btn-secondary" onclick="openShareModal(${g.id})"><i class="fa-solid fa-share-nodes"></i> QR</button>`;
 
         if (currentUser.id === 1 || currentUser.id === g.creador_id) {
+            if (g.estado === 'CONFIGURACION') {
+                html += `<button class="btn btn-secondary" style="background:var(--success); color:#fff;" onclick="cambiarEstadoGrupo(${g.id}, 'EN_PROGRESO')" title="Iniciar Liga"><i class="fa-solid fa-play"></i> Iniciar</button>`;
+            } else if (g.estado === 'EN_PROGRESO') {
+                html += `<button class="btn btn-secondary" style="background:var(--accent); color:#000;" onclick="cambiarEstadoGrupo(${g.id}, 'FINALIZADA')" title="Finalizar Liga"><i class="fa-solid fa-flag-checkered"></i> Finalizar</button>`;
+            } else if (g.estado === 'FINALIZADA') {
+                html += `<button class="btn btn-secondary" style="background:var(--border); color:var(--text);" onclick="cambiarEstadoGrupo(${g.id}, 'EN_PROGRESO')" title="Reabrir Liga"><i class="fa-solid fa-rotate-left"></i> Reabrir</button>`;
+            }
             html += `<button class="btn btn-danger" onclick="eliminarGrupo(${g.id})"><i class="fa-solid fa-trash"></i></button>`;
         }
         html += `</div></div>`;
         container.innerHTML += html;
     });
+}
+
+async function cambiarEstadoGrupo(grupoId, nuevoEstado) {
+    if (!confirm(`¿Estás seguro de cambiar el estado de la liga a ${nuevoEstado}?`)) return;
+    try {
+        const res = await fetch(API_URL + '/grupos/estado', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ grupo_id: grupoId, estado: nuevoEstado })
+        });
+        if (res.ok) {
+            alert('Estado de la liga actualizado con éxito.');
+            cargarGrupos();
+        } else {
+            const data = await res.json();
+            alert(data.error || 'Error al actualizar el estado.');
+        }
+    } catch (err) {
+        alert('Error de conexión con el servidor.');
+    }
 }
 
 function populateGroupSelects() {
@@ -571,7 +598,6 @@ async function renderGames() {
         if (resPr.ok) pronosticos = await resPr.json();
     } catch (e) {}
 
-    // Filtrar por fecha si el usuario seleccionó una en el calendario
     if (fechaFiltro) {
         partidos = partidos.filter(p => p.fecha_juego === fechaFiltro);
     }
@@ -611,8 +637,14 @@ async function renderGames() {
         }
 
         if (currentUser.id === 1) {
-            if (p.estado === 'PENDIENTE') html += `<button class="btn btn-secondary" style="background:#eab308; color:#000;" onclick="cambiarEstadoPartido(${p.id}, 'CERRADO')">Cerrar</button>`;
-            if (p.estado === 'CERRADO') html += `<button class="btn btn-secondary" onclick="abrirModalResultado(${p.id}, '${p.equipo_visitante}', '${p.equipo_local}')">Resultado</button>`;
+            if (p.estado === 'PENDIENTE') {
+                html += `<button class="btn btn-secondary" style="background:#eab308; color:#000;" onclick="cambiarEstadoPartido(${p.id}, 'CERRADO')">Cerrar</button>`;
+            } else if (p.estado === 'CERRADO') {
+                html += `<button class="btn btn-secondary" style="background:#64748b; color:#fff;" onclick="cambiarEstadoPartido(${p.id}, 'PENDIENTE')" title="Reabrir partido"><i class="fa-solid fa-rotate-left"></i> Reabrir</button>`;
+                html += `<button class="btn btn-secondary" onclick="abrirModalResultado(${p.id}, '${p.equipo_visitante}', '${p.equipo_local}')">Resultado</button>`;
+            } else if (p.estado === 'FINALIZADO') {
+                html += `<button class="btn btn-secondary" style="background:#64748b; color:#fff;" onclick="cambiarEstadoPartido(${p.id}, 'PENDIENTE')" title="Reabrir y corregir resultado"><i class="fa-solid fa-rotate-left"></i> Reabrir</button>`;
+            }
             html += `<button class="btn btn-danger" onclick="eliminarPartido(${p.id})"><i class="fa-solid fa-trash"></i></button>`;
         }
         html += `</div></div>`;
