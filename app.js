@@ -9,6 +9,14 @@ document.addEventListener('DOMContentLoaded', () => {
     verificarEstadoServidor();
     checkAuthUI();
     loadStandings();
+
+    // Fecha por defecto en el día actual según hora de Venezuela
+    const filtroFecha = document.getElementById('filter-games-date');
+    if (filtroFecha) {
+        const fechaVzla = new Date().toLocaleDateString("en-CA", { timeZone: "America/Caracas" });
+        filtroFecha.value = fechaVzla;
+    }
+
     if (currentUser) {
         cargarGrupos();
         verificarEnlaceInvitacion();
@@ -626,7 +634,8 @@ async function renderGames() {
                 <input type="number" class="score-input" id="pred-loc-${p.id}" value="${pred.carreras_loc_pred}" ${p.estado !== 'PENDIENTE' ? 'disabled' : ''}>`;
 
         if (p.estado === 'PENDIENTE') {
-            html += `<button class="${tienePred ? 'btn btn-secondary' : 'btn-primary'}" onclick="guardarPronostico(${p.id}, ${grupoId}, ${tienePred})">${tienePred ? 'Editar' : 'Guardar'}</button>`;
+            // Estilo idéntico al botón Cerrar (fondo amarillo, texto oscuro)
+            html += `<button class="btn" style="background: #eab308; color: #000; padding: 0.5rem 1rem; border-radius: 6px; font-weight: 600;" onclick="guardarPronostico(${p.id}, ${grupoId}, ${tienePred})"><i class="fa-solid fa-${tienePred ? 'pen-to-square' : 'floppy-disk'}"></i> ${tienePred ? 'Editar' : 'Guardar'}</button>`;
         } else {
             html += `<button class="btn btn-secondary" style="background: #0284c7; color: #fff;" onclick="abrirModalVerPronosticosPartidos(${p.id}, '${p.equipo_visitante}', '${p.equipo_local}')"><i class="fa-solid fa-eye"></i> Ver</button>`;
             if (p.estado === 'FINALIZADO') {
