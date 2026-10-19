@@ -559,7 +559,7 @@ app.delete('/api/grupos/:id', async (req, res) => {
 
 app.get('/api/partidos', async (req, res) => {
     try {
-        const result = await pool.query('SELECT * FROM partidos ORDER BY fecha_juego ASC, id ASC');
+        const result = await pool.query('SELECT * FROM partidos ORDER BY fecha_juego DESC, id DESC');
         res.json(result.rows);
     } catch (err) {
         res.status(500).json({ error: err.message });

@@ -558,6 +558,7 @@ async function renderGames() {
     if (selectGame && !selectGame.value && selectGame.options.length > 0) selectGame.selectedIndex = 0;
     const grupoId = parseInt(selectGame?.value);
     const container = document.getElementById('games-container');
+    const fechaFiltro = document.getElementById('filter-games-date')?.value;
     if (!container || !grupoId) return;
 
     let partidos = [], pronosticos = [];
@@ -570,8 +571,16 @@ async function renderGames() {
         if (resPr.ok) pronosticos = await resPr.json();
     } catch (e) {}
 
+    // Filtrar por fecha si el usuario seleccionó una en el calendario
+    if (fechaFiltro) {
+        partidos = partidos.filter(p => p.fecha_juego === fechaFiltro);
+    }
+
     container.innerHTML = '';
-    if (partidos.length === 0) { container.innerHTML = `<p style="text-align: center; color: var(--text-muted); padding: 2rem;">No hay partidos cargados.</p>`; return; }
+    if (partidos.length === 0) { 
+        container.innerHTML = `<p style="text-align: center; color: var(--text-muted); padding: 2rem;">No hay partidos programados para esta fecha.</p>`; 
+        return; 
+    }
 
     partidos.forEach(p => {
         const pred = pronosticos.find(x => x.partido_id === p.id) || { carreras_vis_pred: '', carreras_loc_pred: '', puntos_obtenidos: 0 };
@@ -581,7 +590,7 @@ async function renderGames() {
 
         let html = `<div class="game-card">
             <div class="game-info">
-                <div>${estadoBadge} <span style="color: var(--text-muted); font-size: 0.85rem;">${p.hora}</span></div>
+                <div>${estadoBadge} <span style="color: var(--accent); font-weight: bold; font-size: 0.85rem; margin-left: 0.5rem;"><i class="fa-regular fa-calendar"></i> ${p.fecha_juego}</span> <span style="color: var(--text-muted); font-size: 0.85rem; margin-left: 0.5rem;">${p.hora}</span></div>
                 <div class="team-matchup" style="margin-top: 0.5rem;"><span>${p.equipo_visitante}</span> vs <span>${p.equipo_local}</span></div>
                 <div class="stadium"><i class="fa-solid fa-location-dot"></i> ${p.estadio}</div>
             </div>
