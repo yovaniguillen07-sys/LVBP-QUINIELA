@@ -3,489 +3,641 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quiniela LVBP - Pools & Ligas</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>Quiniela LVBP & Pronósticos</title>
+    <!-- FontAwesome para iconos -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- QR Code Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#2563eb">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Quiniela LVBP">
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+            --secondary: #64748b;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --text: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: #334155;
+            --accent: #38bdf8;
+            --gold: #fbbf24;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            background-color: var(--card-bg);
+            border-bottom: 1px solid var(--border);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo-area {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .logo-area i {
+            font-size: 1.5rem;
+            color: var(--gold);
+        }
+
+        .logo-area h1 {
+            font-size: 1.25rem;
+            font-weight: bold;
+            letter-spacing: 0.5px;
+        }
+
+        .user-nav {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .user-badge {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(255,255,255,0.05);
+            padding: 0.35rem 0.75rem;
+            border-radius: 20px;
+            border: 1px solid var(--border);
+        }
+
+        .avatar-circle {
+            width: 28px;
+            height: 28px;
+            background: var(--primary);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+
+        .main-layout {
+            display: flex;
+            flex: 1;
+        }
+
+        aside {
+            width: 260px;
+            background-color: var(--card-bg);
+            border-right: 1px solid var(--border);
+            padding: 1.5rem 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .nav-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            padding: 0.75rem 1rem;
+            text-align: left;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            transition: all 0.2s;
+        }
+
+        .nav-btn:hover, .nav-btn.active {
+            background-color: var(--primary);
+            color: white;
+        }
+
+        main {
+            flex: 1;
+            padding: 2rem;
+            overflow-y: auto;
+            max-width: 1200px;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.9rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: background 0.2s;
+        }
+
+        .btn-primary { background-color: var(--primary); color: white; }
+        .btn-primary:hover { background-color: var(--primary-hover); }
+        .btn-secondary { background-color: var(--secondary); color: white; }
+        .btn-success { background-color: var(--success); color: white; }
+        .btn-danger { background-color: var(--danger); color: white; }
+
+        .groups-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .group-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .group-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .badge {
+            font-size: 0.75rem;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .group-card-actions {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .game-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .game-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .team-matchup {
+            font-size: 1.1rem;
+            font-weight: bold;
+        }
+
+        .stadium {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .score-input {
+            width: 50px;
+            height: 40px;
+            text-align: center;
+            background: var(--bg-color);
+            border: 1px solid var(--border);
+            color: white;
+            font-size: 1.1rem;
+            border-radius: 6px;
+        }
+
+        .table-container {
+            width: 100%;
+            overflow-x: auto;
+        }
+
+        .leaderboard-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: center;
+        }
+
+        .leaderboard-table th, .leaderboard-table td {
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.95rem;
+        }
+
+        .leaderboard-table th {
+            background-color: rgba(255,255,255,0.02);
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        /* MODALES */
+        .modal {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 2rem;
+            width: 100%;
+            max-width: 450px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 0.75rem;
+            background: var(--bg-color);
+            border: 1px solid var(--border);
+            color: white;
+            border-radius: 6px;
+            font-size: 0.95rem;
+        }
+
+        #auth-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg-color);
+            z-index: 2000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        @media (max-width: 768px) {
+            .main-layout { flex-direction: column; }
+            aside { width: 100%; flex-direction: row; overflow-x: auto; padding: 0.5rem; }
+            .nav-btn span { display: none; }
+            main { padding: 1rem; }
+        }
+    </style>
 </head>
 <body>
 
-    <!-- Banner de aviso cuando el servidor está despertando en la nube -->
-    <div id="server-status-banner" style="display: none; background: #eab308; color: #000; text-align: center; padding: 0.5rem; font-size: 0.85rem; font-weight: bold; position: fixed; top: 0; left: 0; width: 100%; z-index: 4000;">
-        <i class="fa-solid fa-spinner fa-spin"></i> El servidor en la nube está despertando (modo reposo). Por favor, espera unos segundos...
-    </div>
-
-    <!-- Overlay de Autenticación -->
-    <div id="auth-overlay" class="modal" style="display: flex;">
-        <div class="modal-content">
-            <h3 id="auth-title">Iniciar Sesión en Quiniela</h3>
-            <form id="auth-form" onsubmit="handleAuth(event)" autocomplete="off">
+    <!-- OVERLAY DE AUTENTICACIÓN -->
+    <div id="auth-overlay">
+        <div class="modal-content" style="border-color: var(--primary);">
+            <div style="text-align: center; margin-bottom: 1.5rem;">
+                <i class="fa-solid fa-baseball-bat-ball" style="font-size: 2.5rem; color: var(--gold); margin-bottom: 0.5rem;"></i>
+                <h2 id="auth-title">Iniciar Sesión en Quiniela</h2>
+            </div>
+            <form onsubmit="handleAuth(event)">
+                <div class="form-group">
+                    <label>Usuario</label>
+                    <input type="text" id="auth-user" required autocomplete="username">
+                </div>
                 <div class="form-group" id="group-email" style="display: none;">
                     <label>Correo Electrónico</label>
-                    <input type="email" id="auth-email" placeholder="correo@ejemplo.com" autocomplete="off">
-                </div>
-                <div class="form-group">
-                    <label>Nombre de Usuario</label>
-                    <input type="text" id="auth-user" required placeholder="Tu usuario" autocomplete="off">
+                    <input type="email" id="auth-email" autocomplete="email">
                 </div>
                 <div class="form-group">
                     <label>Contraseña</label>
-                    <input type="password" id="auth-pass" required placeholder="Tu contraseña" autocomplete="new-password">
+                    <input type="password" id="auth-pass" required autocomplete="current-password">
                 </div>
-                <button type="submit" id="auth-btn" class="btn btn-primary btn-block">Ingresar</button>
-                <p class="text-center" style="margin-top: 1rem; font-size: 0.9rem;">
-                    <span id="auth-switch-text">¿No tienes cuenta?</span> 
-                    <a href="#" onclick="toggleAuthMode()" style="color: var(--accent); text-decoration: none;">Regístrate aquí</a>
-                </p>
+                <button type="submit" class="btn btn-primary" id="auth-btn" style="width: 100%; justify-content: center; padding: 0.75rem; margin-top: 0.5rem;">Ingresar</button>
             </form>
+            <div style="text-align: center; margin-top: 1rem;">
+                <button type="button" class="btn" style="background: transparent; color: var(--accent); font-size: 0.85rem;" onclick="toggleAuthMode()">
+                    <span id="auth-switch-text">¿No tienes cuenta? Regístrate aquí</span>
+                </button>
+            </div>
         </div>
     </div>
 
-    <!-- Header Navigation -->
-    <header class="navbar" style="margin-top: var(--banner-margin, 0px);">
-        <div class="logo">
+    <!-- HEADER PRINCIPAL -->
+    <header>
+        <div class="logo-area">
             <i class="fa-solid fa-baseball-bat-ball"></i>
-            <span>Quiniela <strong>LVBP</strong></span>
+            <h1>Quiniela LVBP</h1>
         </div>
-        <div class="user-profile" style="display: flex; align-items: center; gap: 0.3rem; flex-wrap: wrap;">
-            <div id="user-avatar-container" style="display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; border-radius:50%; background:var(--primary); color:#fff; font-weight:bold; font-size:0.85rem;"></div>
-            <span id="user-display-name">Invitado</span>
-            <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem; background: #0284c7; color: #fff;" onclick="suscribirNotificacionesPush()" title="Activar notificaciones push">
-                <i class="fa-solid fa-bell"></i> Alertas
+        <div class="user-nav">
+            <div class="user-badge" onclick="abrirModalPerfil()" style="cursor: pointer;" title="Editar Perfil">
+                <div class="avatar-circle" id="user-avatar-container">GV</div>
+                <span id="user-display-name" style="font-weight: 600; font-size: 0.9rem;">Usuario</span>
+            </div>
+            <button class="btn btn-secondary" onclick="cerrarSesion()" style="padding: 0.35rem 0.75rem; font-size: 0.85rem;" title="Salir">
+                <i class="fa-solid fa-right-from-bracket"></i> Salir
             </button>
-            <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;" onclick="abrirModalPerfil()">Perfil</button>
-            <button id="btn-admin-panel" class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem; display: none; background: var(--accent); color: #000;" onclick="abrirModalAdminUsuarios()">Panel Admin</button>
-            <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;" onclick="cerrarSesion()">Salir</button>
         </div>
     </header>
 
-    <!-- Main App Container -->
-    <main class="container">
-        <aside class="sidebar">
-            <button class="nav-btn active" onclick="switchTab('groups-tab')">
-                <i class="fa-solid fa-users"></i> Ligas / Pools
-            </button>
-            <button class="nav-btn" onclick="switchTab('games-tab')">
-                <i class="fa-solid fa-calendar-days"></i> Partidos & Pronósticos
-            </button>
-            <button class="nav-btn" onclick="switchTab('standings-tab'); loadStandings();">
-                <i class="fa-solid fa-table-list"></i> Tabla LVBP
-            </button>
-            <button class="nav-btn" onclick="switchTab('leaderboard-tab')">
-                <i class="fa-solid fa-trophy"></i> Tabla de Posiciones
-            </button>
-            <button class="nav-btn" onclick="switchTab('history-tab')">
-                <i class="fa-solid fa-clock-rotate-left"></i> Historial de Puntos
-            </button>
-            <button class="nav-btn" onclick="switchTab('cards-tab'); cargarCartasColeccionables();">
-                <i class="fa-solid fa-clone"></i> Cartas Secretas
-            </button>
-            <button class="nav-btn" onclick="switchTab('championships-tab')">
-                <i class="fa-solid fa-award"></i> Salón de Campeones
-            </button>
-            <button class="nav-btn" onclick="switchTab('rules-tab')">
-                <i class="fa-solid fa-book-open"></i> Reglas de Puntuación
-            </button>
+    <div class="main-layout">
+        <!-- BARRA LATERAL -->
+        <aside>
+            <button class="nav-btn active" onclick="switchTab('tab-ligas')"><i class="fa-solid fa-trophy"></i><span>Ligas / Pools</span></button>
+            <button class="nav-btn" onclick="switchTab('tab-partidos')"><i class="fa-solid fa-calendar-days"></i><span>Partidos & Pronósticos</span></button>
+            <button class="nav-btn" onclick="switchTab('tab-standings')"><i class="fa-solid fa-list-ol"></i><span>Tabla LVBP</span></button>
+            <button class="nav-btn" onclick="switchTab('tab-historial')"><i class="fa-solid fa-clock-rotate-left"></i><span>Historial de Puntos</span></button>
+            <button class="nav-btn" onclick="switchTab('tab-cartas')"><i class="fa-solid fa-id-card"></i><span>Cartas Coleccionables</span></button>
+            
+            <!-- CONTROLES DE ADMINISTRADOR -->
+            <div style="margin-top: auto; border-top: 1px solid var(--border); padding-top: 1rem; display: flex; flex-direction: column; gap: 0.35rem;">
+                <button class="nav-btn" id="btn-nuevo-partido" style="display:none; background:rgba(59,130,246,0.1); color:var(--primary);" onclick="abrirModalCrearPartido()"><i class="fa-solid fa-plus"></i><span>Crear Partido</span></button>
+                <button class="nav-btn" id="btn-admin-standings" style="display:none; background:rgba(251,191,36,0.1); color:var(--gold);" onclick="abrirModalAdminStandings()"><i class="fa-solid fa-sliders"></i><span>Ajustar Standings</span></button>
+                <button class="nav-btn" id="btn-admin-puntos" style="display:none; background:rgba(16,185,129,0.1); color:var(--success);" onclick="abrirModalAdminPuntos()"><i class="fa-solid fa-pen-to-square"></i><span>Modificar Puntos</span></button>
+                <button class="nav-btn" id="btn-admin-crear-carta" style="display:none; background:rgba(239,68,68,0.1); color:var(--danger);" onclick="abrirModalCrearCarta()"><i class="fa-solid fa-award"></i><span>Crear Carta Única</span></button>
+                <button class="nav-btn" id="btn-admin-panel" style="display:none; background:rgba(148,163,184,0.1); color:var(--text-muted);" onclick="abrirModalAdminUsuarios()"><i class="fa-solid fa-users-gear"></i><span>Gestión Usuarios</span></button>
+                <button class="nav-btn" style="background:rgba(255,255,255,0.03); color:var(--text-muted); font-size:0.8rem;" onclick="descargarRespaldoServidor()"><i class="fa-solid fa-download"></i><span>Descargar Respaldo</span></button>
+                <label class="nav-btn" style="background:rgba(255,255,255,0.03); color:var(--text-muted); font-size:0.8rem; cursor:pointer; margin:0;"><i class="fa-solid fa-upload"></i><span>Restaurar Datos</span><input type="file" id="restore-file-input" style="display:none;" onchange="restaurarRespaldoServidor(event)"></label>
+            </div>
         </aside>
 
-        <section class="content">
-            <!-- TAB 1: GRUPOS / LIGAS -->
-            <div id="groups-tab" class="tab-content active">
-                <div class="section-header">
-                    <h2>Gestión de Ligas</h2>
-                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                        <button class="btn btn-secondary" onclick="abrirModalUnirseLiga()"><i class="fa-solid fa-right-to-bracket"></i> Unirse a Liga</button>
-                        <button class="btn btn-primary" onclick="abrirModalCrearGrupo()"><i class="fa-solid fa-plus"></i> Crear Liga</button>
+        <!-- CONTENIDO PRINCIPAL -->
+        <main>
+            <!-- TAB 1: LIGAS -->
+            <div id="tab-ligas" class="tab-content active">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Mis Ligas / Pools</h2>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button class="btn btn-secondary" onclick="abrirModalUnirseLiga()"><i class="fa-solid fa-right-to-bracket"></i> Unirse a Liga</button>
+                            <button class="btn btn-primary" onclick="abrirModalCrearGrupo()"><i class="fa-solid fa-plus"></i> Crear Nueva Liga</button>
+                        </div>
+                    </div>
+                    <div id="groups-list" class="groups-grid">
+                        <!-- Ligas dinámicas -->
                     </div>
                 </div>
-                <div class="groups-grid" id="groups-list"></div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Leaderboard de Liga Seleccionada</h2>
+                        <select id="group-filter" class="form-group" style="width: 220px; margin-bottom: 0;" onchange="loadLeaderboard()"></select>
+                    </div>
+                    <div class="table-container">
+                        <table class="leaderboard-table">
+                            <thead>
+                                <tr>
+                                    <th>Pos</th>
+                                    <th>Usuario</th>
+                                    <th>Rol</th>
+                                    <th>Puntos</th>
+                                </tr>
+                            </thead>
+                            <tbody id="leaderboard-body">
+                                <tr><td colspan="4" style="color: var(--text-muted);">Selecciona una liga para ver el ranking.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
 
             <!-- TAB 2: PARTIDOS & PRONÓSTICOS -->
-            <div id="games-tab" class="tab-content">
-                <div class="section-header">
-                    <h2>Jornada LVBP & Pronósticos</h2>
-                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
-                        <select id="group-select-game" onchange="renderGames()"></select>
-                        <div style="display: flex; align-items: center; gap: 0.3rem; background: var(--card-bg); border: 1px solid var(--border); padding: 0.2rem 0.5rem; border-radius: 6px;">
-                            <span style="font-size:0.8rem; color:var(--text-muted);">Fecha:</span>
-                            <input type="date" id="filter-games-date" onchange="renderGames()" style="background:transparent; border:none; color:var(--text); font-size:0.85rem;">
+            <div id="tab-partidos" class="tab-content">
+                <div class="card">
+                    <div class="card-header" style="flex-wrap: wrap; gap: 0.75rem;">
+                        <h2>Jornada LVBP & Pronósticos</h2>
+                        <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                            <select id="group-select-game" style="padding: 0.4rem; background: var(--bg-color); color: white; border: 1px solid var(--border); border-radius: 6px;" onchange="renderGames()"></select>
+                            <!-- Filtro de Fecha con valor por defecto del día actual -->
+                            <input type="date" id="filter-games-date" style="padding: 0.4rem; background: var(--bg-color); color: white; border: 1px solid var(--border); border-radius: 6px;" onchange="renderGames()">
+                            <button class="btn btn-secondary" onclick="renderGames()" style="padding: 0.4rem 0.8rem;"><i class="fa-solid fa-filter"></i> Ver Todos</button>
+                            <button class="btn btn-success" onclick="enviarRecordatorioWhatsApp()" style="padding: 0.4rem 0.8rem; background: #25d366; color: white;"><i class="fa-brands fa-whatsapp"></i> WhatsApp</button>
                         </div>
-                        <button class="btn btn-secondary" style="padding: 0.4rem 0.6rem; font-size: 0.8rem;" onclick="document.getElementById('filter-games-date').value=''; renderGames();" title="Ver todos">Ver Todos</button>
-                        <button class="btn" style="background: #25d366; color: #fff;" onclick="enviarRecordatorioWhatsApp()">
-                            <i class="fa-brands fa-whatsapp"></i> WhatsApp
-                        </button>
-                        <button id="btn-nuevo-partido" class="btn btn-primary" style="display: none;" onclick="abrirModalCrearPartido()">
-                            <i class="fa-solid fa-plus"></i> Añadir
-                        </button>
+                    </div>
+                    <div id="games-container">
+                        <!-- Partidos dinámicos -->
                     </div>
                 </div>
-                <div class="games-list" id="games-container"></div>
             </div>
 
-            <!-- TAB: TABLA LVBP -->
-            <div id="standings-tab" class="tab-content">
-                <div class="section-header">
-                    <h2>Tabla de Posiciones - Temporada Regular LVBP</h2>
-                    <button id="btn-admin-standings" class="btn btn-secondary" style="display: none; background: var(--accent); color: #000;" onclick="abrirModalAdminStandings()">
-                        <i class="fa-solid fa-sliders"></i> Ajustar Base Manual
-                    </button>
-                </div>
-                <div class="table-container">
-                    <table class="leaderboard-table" style="font-size: 0.9rem;">
-                        <thead>
-                            <tr>
-                                <th style="text-align: left;">Equipo</th>
-                                <th>JJ</th>
-                                <th>JG</th>
-                                <th>JP</th>
-                                <th>AVE</th>
-                                <th>DIF</th>
-                                <th>CA</th>
-                                <th>CP</th>
-                                <th>DIF-C</th>
-                            </tr>
-                        </thead>
-                        <tbody id="standings-body"></tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- TAB 3: LEADERBOARD -->
-            <div id="leaderboard-tab" class="tab-content">
-                <div class="section-header">
-                    <h2>Tabla de Posiciones</h2>
-                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                        <select id="group-filter" onchange="loadLeaderboard()"></select>
-                        <button id="btn-admin-puntos" class="btn btn-secondary" style="display: none; background: var(--accent); color: #000;" onclick="abrirModalAdminPuntos()">Modificar Puntos</button>
+            <!-- TAB 3: STANDINGS TABLA LVBP -->
+            <div id="tab-standings" class="tab-content">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Tabla de Posiciones Oficial LVBP</h2>
+                        <span style="font-size: 0.85rem; color: var(--text-muted);">Cálculo automático con partidos finalizados</span>
+                    </div>
+                    <div class="table-container">
+                        <table class="leaderboard-table">
+                            <thead>
+                                <tr>
+                                    <th style="text-align: left;">Equipo</th>
+                                    <th>JJ</th>
+                                    <th>JG</th>
+                                    <th>JP</th>
+                                    <th>AVE</th>
+                                    <th>DIF</th>
+                                    <th>CA</th>
+                                    <th>CP</th>
+                                    <th>DIF.C</th>
+                                </tr>
+                            </thead>
+                            <tbody id="standings-body">
+                                <!-- Standings dinámicos -->
+                            </tbody>
+                        </table>
                     </div>
                 </div>
-                <div class="table-container">
-                    <table class="leaderboard-table">
-                        <thead>
-                            <tr>
-                                <th>Posición</th>
-                                <th>Usuario</th>
-                                <th>Rol</th>
-                                <th>Puntos Totales</th>
-                            </tr>
-                        </thead>
-                        <tbody id="leaderboard-body"></tbody>
-                    </table>
-                </div>
             </div>
 
-            <!-- TAB 4: HISTORIAL DE PUNTOS -->
-            <div id="history-tab" class="tab-content">
-                <div class="section-header">
-                    <h2>Historial de Puntos por Partido</h2>
-                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
-                        <select id="group-filter-history" onchange="loadHistory()"></select>
-                        <div style="display: flex; align-items: center; gap: 0.3rem; background: var(--card-bg); border: 1px solid var(--border); padding: 0.2rem 0.5rem; border-radius: 6px;">
-                            <span style="font-size:0.8rem; color:var(--text-muted);">Desde:</span>
-                            <input type="date" id="filter-date-from" onchange="aplicarFiltrosHistorial()" style="background:transparent; border:none; color:var(--text); font-size:0.85rem;">
+            <!-- TAB 4: HISTORIAL -->
+            <div id="tab-historial" class="tab-content">
+                <div class="card">
+                    <div class="card-header" style="flex-direction: column; align-items: flex-start; gap: 1rem;">
+                        <div style="display: flex; justify-content: space-between; width: 100%; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                            <h2>Historial de Puntos y Pronósticos</h2>
+                            <select id="group-filter-history" style="padding: 0.4rem; background: var(--bg-color); color: white; border: 1px solid var(--border); border-radius: 6px;" onchange="loadHistory()"></select>
                         </div>
-                        <div style="display: flex; align-items: center; gap: 0.3rem; background: var(--card-bg); border: 1px solid var(--border); padding: 0.2rem 0.5rem; border-radius: 6px;">
-                            <span style="font-size:0.8rem; color:var(--text-muted);">Hasta:</span>
-                            <input type="date" id="filter-date-to" onchange="aplicarFiltrosHistorial()" style="background:transparent; border:none; color:var(--text); font-size:0.85rem;">
+                        <div style="display: flex; gap: 1rem; flex-wrap: wrap; width: 100%; align-items: center;">
+                            <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                <label style="font-size: 0.85rem; color: var(--text-muted);">Desde:</label>
+                                <input type="date" id="filter-date-from" style="padding: 0.35rem; background: var(--bg-color); color: white; border: 1px solid var(--border); border-radius: 6px;" onchange="aplicarFiltrosHistorial()">
+                            </div>
+                            <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                <label style="font-size: 0.85rem; color: var(--text-muted);">Hasta:</label>
+                                <input type="date" id="filter-date-to" style="padding: 0.35rem; background: var(--bg-color); color: white; border: 1px solid var(--border); border-radius: 6px;" onchange="aplicarFiltrosHistorial()">
+                            </div>
+                            <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                <label style="font-size: 0.85rem; color: var(--text-muted);">Jugador:</label>
+                                <select id="filter-history-jugador" style="padding: 0.35rem; background: var(--bg-color); color: white; border: 1px solid var(--border); border-radius: 6px;" onchange="aplicarFiltrosHistorial()">
+                                    <option value="">Todos los Jugadores</option>
+                                </select>
+                            </div>
+                            <button class="btn btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.85rem;" onclick="limpiarFiltrosHistorial()">Limpiar Filtros</button>
                         </div>
-                        <select id="filter-history-jugador" onchange="aplicarFiltrosHistorial()" style="padding: 0.5rem; background: var(--card-bg); border: 1px solid var(--border); color: var(--text); border-radius: 6px;">
-                            <option value="">Todos los Jugadores</option>
-                        </select>
-                        <button class="btn btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;" onclick="limpiarFiltrosHistorial()">Limpiar</button>
                     </div>
-                </div>
-                <div class="table-container">
-                    <table class="leaderboard-table">
-                        <thead>
-                            <tr>
-                                <th>Jugador</th>
-                                <th>Partido</th>
-                                <th>Fecha</th>
-                                <th>Pronóstico</th>
-                                <th>Resultado Real</th>
-                                <th>Puntos</th>
-                            </tr>
-                        </thead>
-                        <tbody id="history-body"></tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- NUEVA TAB: CARTAS SECRETAS -->
-            <div id="cards-tab" class="tab-content">
-                <div class="section-header">
-                    <h2>Cartas Coleccionables Secretas (Ganadores Semanales)</h2>
-                    <div style="display: flex; gap: 0.5rem; align-items: center;">
-                        <select id="group-filter-cards" onchange="cargarCartasColeccionables()"></select>
-                        <button id="btn-admin-crear-carta" class="btn btn-primary" style="display:none;" onclick="abrirModalCrearCarta()"><i class="fa-solid fa-plus"></i> Crear Carta Semanal</button>
-                    </div>
-                </div>
-                <p class="subtitle" style="margin-bottom: 1rem;">Las cartas del ganador semanal permanecen ocultas (boca abajo) hasta que sean reveladas oficialmente.</p>
-                <div id="cards-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem;"></div>
-            </div>
-
-            <!-- TAB 5: SALÓN DE CAMPEONES -->
-            <div id="championships-tab" class="tab-content">
-                <div class="section-header">
-                    <h2>Salón de Campeones & Trofeos</h2>
-                    <select id="group-filter-championships" onchange="loadChampionships()"></select>
-                </div>
-                <div id="championships-container" style="display: flex; flex-direction: column; gap: 1rem;"></div>
-            </div>
-
-            <!-- TAB 6: REGLAS -->
-            <div id="rules-tab" class="tab-content">
-                <div class="section-header"><h2>Reglas de Puntuación & Desempate</h2></div>
-                <div class="rules-container">
-                    <div class="rule-card">
-                        <div class="rule-header"><span class="rule-points">6 PTS</span><h3>Acierto Directo / Pleno</h3></div>
-                        <p>Aciertas el equipo ganador y el marcador exacto.</p>
-                    </div>
-                    <div class="rule-card">
-                        <div class="rule-header"><span class="rule-points">3 PTS</span><h3>Acierto de Ganador</h3></div>
-                        <p>Aciertas cuál equipo ganó el partido sin atinar el marcador exacto.</p>
-                    </div>
-                    <div class="rule-card">
-                        <div class="rule-header"><span class="rule-points">2 PTS</span><h3>Acierto de Carreras Totales</h3></div>
-                        <p>La suma total de carreras coincide con la real sin acertar el ganador.</p>
-                    </div>
-                    <div class="rule-card" style="border-color: var(--success);">
-                        <div class="rule-header"><span class="rule-points" style="background:var(--success); color:#fff;">CRITERIO</span><h3>Regla de Desempate en Liga</h3></div>
-                        <p>En caso de empate en puntos totales al finalizar la liga, el jugador con <strong>más aciertos directos (plenos de 6 pts)</strong> será el ganador absoluto.</p>
-                    </div>
-                    <div class="rule-card" style="border-color: var(--accent);">
-                        <div class="rule-header"><span class="rule-points" style="background:var(--card-bg); color:var(--accent); border:1px solid var(--accent);">NOTA</span><h3>Límite de Modificación</h3></div>
-                        <p>Nota: El pronóstico del partido podrá ser modificado hasta 30 minutos antes de la hora de inicio del juego.</p>
+                    <div class="table-container">
+                        <table class="leaderboard-table">
+                            <thead>
+                                <tr>
+                                    <th>Usuario</th>
+                                    <th>Partido</th>
+                                    <th>Fecha</th>
+                                    <th>Tu Pronóstico</th>
+                                    <th>Resultado Real</th>
+                                    <th>Puntos</th>
+                                </tr>
+                            </thead>
+                            <tbody id="history-body">
+                                <tr><td colspan="6" style="text-align: center; color: var(--text-muted);">Cargando historial...</td></tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
-        </section>
-    </main>
 
-    <!-- Modales -->
-    <div id="admin-standings-modal" class="modal">
-        <div class="modal-content" style="max-width: 600px;">
-            <span class="close-btn" onclick="closeModal('admin-standings-modal')">&times;</span>
-            <h3>Ajuste Manual de Base (Standings LVBP)</h3>
-            <p class="subtitle" style="margin-bottom: 1rem; font-size: 0.85rem;">Ingresa aquí los Juegos Ganados, Perdidos, Carreras Anotadas y Permitidas acumuladas hasta hoy para cada equipo.</p>
-            <form onsubmit="handleGuardarStandingsBase(event)">
-                <div id="admin-standings-inputs" style="max-height: 350px; overflow-y: auto; margin-bottom: 1rem; display: flex; flex-direction: column; gap: 0.75rem;"></div>
-                <button type="submit" class="btn btn-primary btn-block">Guardar Ajustes Base</button>
-            </form>
-        </div>
+            <!-- TAB 5: CARTAS COLECCIONABLES -->
+            <div id="tab-cartas" class="tab-content">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Vitrina de Cartas Coleccionables</h2>
+                        <select id="group-filter-cards" style="padding: 0.4rem; background: var(--bg-color); color: white; border: 1px solid var(--border); border-radius: 6px;" onchange="cargarCartasColeccionables()"></select>
+                    </div>
+                    <div id="cards-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem;">
+                        <!-- Cartas dinámicas -->
+                    </div>
+                </div>
+            </div>
+        </main>
     </div>
 
-    <div id="create-card-modal" class="modal">
+    <!-- MODALES DE LA APLICACIÓN -->
+
+    <!-- Modal Crear/Editar Liga -->
+    <div id="create-group-modal" class="modal" style="display:none;">
         <div class="modal-content">
-            <span class="close-btn" onclick="closeModal('create-card-modal')">&times;</span>
-            <h3>Crear Carta Única Semanal</h3>
-            <form onsubmit="handleCrearCarta(event)">
-                <div class="form-group"><label>Título / Nombre de la Carta</label><input type="text" id="card-name" required placeholder="Ej. MVP Semana 1"></div>
-                <div class="form-group"><label>URL de la Imagen (Opcional)</label><input type="url" id="card-image-url" placeholder="https://ejemplo.com/imagen.jpg"></div>
-                <div class="form-group"><label>Ganador Original (Otorgar a)</label><select id="card-winner-user" required style="padding:0.5rem; background:var(--bg-color); border:1px solid var(--border); color:var(--text); border-radius:6px;"></select></div>
-                <button type="submit" class="btn btn-primary btn-block">Crear Carta</button>
-            </form>
-        </div>
-    </div>
-
-    <div id="transfer-card-modal" class="modal">
-        <div class="modal-content">
-            <span class="close-btn" onclick="closeModal('transfer-card-modal')">&times;</span>
-            <h3>Transferir Carta Coleccionable</h3>
-            <input type="hidden" id="transfer-card-id">
-            <p id="transfer-card-title" style="color:var(--accent); font-weight:bold; margin-bottom:1rem;"></p>
-            <form onsubmit="handleTransferirCarta(event)">
-                <div class="form-group"><label>Seleccionar Usuario Destino</label><select id="transfer-user-target" required style="padding:0.5rem; background:var(--bg-color); border:1px solid var(--border); color:var(--text); border-radius:6px;"></select></div>
-                <button type="submit" class="btn btn-primary btn-block">Confirmar Transferencia</button>
-            </form>
-        </div>
-    </div>
-
-    <div id="join-group-modal" class="modal">
-        <div class="modal-content">
-            <span class="close-btn" onclick="closeModal('join-group-modal')">&times;</span>
-            <h3>Unirse a una Liga Existente</h3>
-            <form onsubmit="handleUnirseLiga(event)">
-                <div class="form-group"><label>Código de la Liga</label><input type="text" id="join-codigo" required placeholder="Ej. LVBP-XXXXX"></div>
-                <div class="form-group" id="join-pass-group" style="display: none;"><label>Contraseña de la Liga</label><input type="password" id="join-password" placeholder="Contraseña"></div>
-                <button type="submit" class="btn btn-primary btn-block">Unirme a la Liga</button>
-            </form>
-        </div>
-    </div>
-
-    <div id="members-modal" class="modal">
-        <div class="modal-content" style="max-width: 550px;">
-            <span class="close-btn" onclick="closeModal('members-modal')">&times;</span>
-            <h3 id="members-modal-title">Miembros de la Liga</h3>
-            <div class="table-container" style="max-height: 250px; overflow-y: auto; margin-top: 1rem;">
-                <table class="leaderboard-table">
-                    <thead><tr><th>Usuario</th><th id="th-email-header">Correo</th><th>Acción</th></tr></thead>
-                    <tbody id="members-tbody"></tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-
-    <div id="ver-pronosticos-modal" class="modal">
-        <div class="modal-content" style="max-width: 500px;">
-            <span class="close-btn" onclick="closeModal('ver-pronosticos-modal')">&times;</span>
-            <h3 id="ver-pred-match-title">Pronósticos del Partido</h3>
-            <p class="subtitle" style="margin-bottom: 1rem;">Predicciones de los usuarios de esta liga</p>
-            <div class="table-container" style="max-height: 300px; overflow-y: auto;">
-                <table class="leaderboard-table">
-                    <thead>
-                        <tr>
-                            <th>Usuario</th>
-                            <th>Pronóstico (V - L)</th>
-                            <th>Puntos</th>
-                        </tr>
-                    </thead>
-                    <tbody id="ver-pred-tbody"></tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-
-    <div id="admin-predictions-modal" class="modal">
-        <div class="modal-content" style="max-width: 700px;">
-            <span class="close-btn" onclick="closeModal('admin-predictions-modal')">&times;</span>
-            <h3 id="admin-pred-title">Pronósticos de los Jugadores</h3>
-            <div class="table-container" style="max-height: 350px; overflow-y: auto; margin-top: 1rem;">
-                <table class="leaderboard-table">
-                    <thead><tr><th>Jugador</th><th>Partido</th><th>Pronóstico V - L</th></tr></thead>
-                    <tbody id="admin-pred-tbody"></tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-
-    <div id="admin-users-modal" class="modal">
-        <div class="modal-content" style="max-width: 650px;">
-            <span class="close-btn" onclick="closeModal('admin-users-modal')">&times;</span>
-            <h3>Panel de Administración General</h3>
-            <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); padding: 1rem; border-radius: 6px; margin: 1rem 0;">
-                <h4 style="margin-bottom: 0.5rem; color: var(--accent);"><i class="fa-solid fa-database"></i> Respaldos del Servidor</h4>
-                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
-                    <button type="button" class="btn btn-primary" onclick="descargarRespaldoServidor()"><i class="fa-solid fa-download"></i> Descargar Respaldo (.json)</button>
-                </div>
-                <form onsubmit="restaurarRespaldoServidor(event)" style="margin-top: 0.75rem; display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
-                    <input type="file" id="restore-file-input" accept=".json" required style="font-size: 0.85rem; color: var(--text);">
-                    <button type="submit" class="btn btn-secondary" style="background: var(--danger);"><i class="fa-solid fa-upload"></i> Subir y Restaurar</button>
-                </form>
-            </div>
-            <div style="margin: 1rem 0;">
-                <h4>Crear Nuevo Usuario</h4>
-                <form onsubmit="handleAdminCrearUsuario(event)" style="display: flex; gap: 0.5rem; margin-top: 0.5rem; flex-wrap: wrap;">
-                    <input type="text" id="adm-user" required placeholder="Usuario" style="flex:1; min-width:120px; padding:0.5rem; background:var(--bg-color); border:1px solid var(--border); color:var(--text); border-radius:4px;">
-                    <input type="email" id="adm-email" required placeholder="Correo" style="flex:1; min-width:150px; padding:0.5rem; background:var(--bg-color); border:1px solid var(--border); color:var(--text); border-radius:4px;">
-                    <input type="password" id="adm-pass" required placeholder="Clave" style="flex:1; min-width:100px; padding:0.5rem; background:var(--bg-color); border:1px solid var(--border); color:var(--text); border-radius:4px;">
-                    <button type="submit" class="btn btn-primary">Crear</button>
-                </form>
-            </div>
-            <hr style="border-color: var(--border); margin: 1rem 0;">
-            <h4>Usuarios Registrados</h4>
-            <div class="table-container" style="max-height: 200px; overflow-y: auto; margin-top: 0.5rem;">
-                <table class="leaderboard-table">
-                    <thead><tr><th>Usuario</th><th>Email</th><th>Contraseña</th><th>Acción</th></tr></thead>
-                    <tbody id="admin-users-tbody"></tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-
-    <div id="admin-puntos-modal" class="modal">
-        <div class="modal-content">
-            <span class="close-btn" onclick="closeModal('admin-puntos-modal')">&times;</span>
-            <h3>Modificar Puntos de Usuario</h3>
-            <form onsubmit="handleAdminGuardarPuntos(event)">
-                <div class="form-group"><label>Seleccionar Usuario</label><select id="adm-puntos-user" required style="padding:0.5rem; background:var(--bg-color); border:1px solid var(--border); color:var(--text); border-radius:6px;"></select></div>
-                <div class="form-group"><label>Nuevos Puntos Totales</label><input type="number" id="adm-puntos-val" required min="0"></div>
-                <button type="submit" class="btn btn-primary btn-block">Actualizar Puntos</button>
-            </form>
-        </div>
-    </div>
-
-    <div id="profile-modal" class="modal">
-        <div class="modal-content" style="max-width: 550px;">
-            <span class="close-btn" onclick="closeModal('profile-modal')">&times;</span>
-            <h3>Mi Perfil de Usuario</h3>
-            <form onsubmit="handleActualizarPerfil(event)" style="margin-bottom: 1.5rem;">
-                <div class="form-group"><label>Nuevo Nombre (Alias)</label><input type="text" id="edit-username" required placeholder="Tu nuevo alias"></div>
-                <div class="form-group"><label>Nueva Contraseña</label><input type="password" id="edit-password" required placeholder="Nueva contraseña"></div>
-                <button type="submit" class="btn btn-primary btn-block">Guardar Cambios</button>
-            </form>
-            
-            <hr style="border-color: var(--border); margin: 1rem 0;">
-            
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
-                <h4 style="color:var(--accent); margin:0;"><i class="fa-solid fa-clone"></i> Vitrina de Cartas</h4>
-                <button type="button" class="btn btn-secondary" style="font-size: 0.8rem; padding: 0.3rem 0.6rem;" onclick="abrirVitrinaCartasPerfil()">
-                    <i class="fa-solid fa-eye"></i> Ver Mis Cartas
-                </button>
-            </div>
-            <div id="user-profile-cards-grid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); gap:0.75rem; max-height:220px; overflow-y:auto; padding-top:0.25rem;"></div>
-        </div>
-    </div>
-
-    <div id="create-group-modal" class="modal">
-        <div class="modal-content">
-            <span class="close-btn" onclick="closeModal('create-group-modal')">&times;</span>
-            <h3 id="group-modal-title">Crear Nueva Liga</h3>
+            <h3 id="group-modal-title" style="margin-bottom: 1rem;">Crear Nueva Liga</h3>
             <form onsubmit="handleGuardarGrupo(event)">
                 <input type="hidden" id="edit-group-id">
-                <div class="form-group"><label>Nombre del Grupo / Liga</label><input type="text" id="group-name" required placeholder="Nueva Liga LVBP"></div>
+                <div class="form-group">
+                    <label>Nombre de la Liga / Pool</label>
+                    <input type="text" id="group-name" required placeholder="Ej: Puro Pincho LVBP">
+                </div>
                 <div class="form-group">
                     <label>Tipo de Liga</label>
-                    <select id="group-type" onchange="toggleGroupPassword()" style="padding:0.75rem; background:var(--bg-color); border:1px solid var(--border); color:var(--text); border-radius:6px;">
+                    <select id="group-type" onchange="toggleGroupPassword()">
                         <option value="PUBLICA">Pública</option>
-                        <option value="PRIVADA">Privada (Con contraseña)</option>
+                        <option value="PRIVADA">Privada con Contraseña</option>
                     </select>
                 </div>
                 <div class="form-group" id="group-pass-container" style="display: none;">
                     <label>Contraseña de Acceso</label>
-                    <input type="password" id="group-password" placeholder="Contraseña de la liga">
+                    <input type="password" id="group-password">
                 </div>
-                <button type="submit" class="btn btn-primary btn-block">Guardar Liga</button>
+                <div style="display:flex; gap:0.5rem; justify-content:flex-end; margin-top:1rem;">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('create-group-modal')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                </div>
             </form>
         </div>
     </div>
 
-    <div id="create-game-modal" class="modal">
+    <!-- Modal Unirse a Liga -->
+    <div id="join-group-modal" class="modal" style="display:none;">
         <div class="modal-content">
-            <span class="close-btn" onclick="closeModal('create-game-modal')">&times;</span>
-            <h3 id="game-modal-title">Añadir Partido</h3>
+            <h3 style="margin-bottom: 1rem;">Unirse a una Liga</h3>
+            <form onsubmit="handleUnirseLiga(event)">
+                <div class="form-group">
+                    <label>Código de Invitación (Ej: LVBP-XXXXX)</label>
+                    <input type="text" id="join-codigo" required placeholder="LVBP-...">
+                </div>
+                <div class="form-group" id="join-pass-group" style="display: none;">
+                    <label>Contraseña (Liga Privada)</label>
+                    <input type="password" id="join-password">
+                </div>
+                <div style="display:flex; gap:0.5rem; justify-content:flex-end; margin-top:1rem;">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('join-group-modal')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Unirse</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Crear Partido -->
+    <div id="create-game-modal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <h3 style="margin-bottom: 1rem;">Programar Nuevo Partido</h3>
             <form onsubmit="handleGuardarPartido(event)">
-                <input type="hidden" id="edit-game-id">
                 <div class="form-group">
                     <label>Equipo Visitante</label>
-                    <input type="text" id="new-vis" list="lvbp-teams" required placeholder="Selecciona o escribe el visitante">
+                    <input type="text" id="new-vis" required placeholder="Ej: Tigres de Aragua">
                 </div>
                 <div class="form-group">
                     <label>Equipo Local</label>
-                    <input type="text" id="new-loc" list="lvbp-teams" required placeholder="Selecciona o escribe el local">
+                    <input type="text" id="new-loc" required placeholder="Ej: Águilas del Zulia">
                 </div>
-                <datalist id="lvbp-teams">
-                    <option value="Leones del Caracas">
-                    <option value="Navegantes del Magallanes">
-                    <option value="Cardenales de Lara">
-                    <option value="Tiburones de La Guaira">
-                    <option value="Bravos de Margarita">
-                    <option value="Tigres de Aragua">
-                    <option value="Caribes de Anzoátegui">
-                    <option value="Águilas del Zulia">
-                </datalist>
-                <div class="form-group"><label>Fecha del Partido</label><input type="date" id="new-fecha" required style="padding:0.75rem; background:var(--bg-color); border:1px solid var(--border); color:var(--text); border-radius:6px; width:100%;"></div>
                 <div class="form-group">
-                    <label>Hora del Partido</label>
+                    <label>Fecha</label>
+                    <input type="date" id="new-fecha" required>
+                </div>
+                <div class="form-group">
+                    <label>Hora</label>
                     <div style="display: flex; gap: 0.5rem;">
-                        <input type="time" id="new-hora-val" required style="flex:1; padding:0.75rem; background:var(--bg-color); border:1px solid var(--border); color:var(--text); border-radius:6px;">
-                        <select id="new-hora-ampm" style="padding:0.75rem; background:var(--bg-color); border:1px solid var(--border); color:var(--text); border-radius:6px;">
+                        <input type="text" id="new-hora-val" placeholder="07:00" required style="flex: 1;">
+                        <select id="new-hora-ampm" style="width: 90px;">
                             <option value="PM">PM</option>
                             <option value="AM">AM</option>
                         </select>
@@ -493,51 +645,251 @@
                 </div>
                 <div class="form-group">
                     <label>Estadio</label>
-                    <input type="text" id="new-estadio" list="lvbp-stadiums" required placeholder="Selecciona o escribe el estadio">
+                    <input type="text" id="new-estadio" required placeholder="Ej: Estadio Luis Aparicio El Grande">
                 </div>
-                <datalist id="lvbp-stadiums">
-                    <option value="Estadio Monumental Simón Bolívar">
-                    <option value="Estadio Universitario de Caracas">
-                    <option value="Estadio José Bernardo Pérez">
-                    <option value="Estadio Antonio Herrera Gutiérrez">
-                    <option value="Estadio Jorge Luis García Carneiro">
-                    <option value="Estadio Alfonso Carrasquel">
-                    <option value="Estadio Luis Aparicio El Grande">
-                    <option value="Estadio José Pérez Colmenares">
-                    <option value="Estadio Nueva Esparta">
-                </datalist>
-                <button type="submit" class="btn btn-primary btn-block">Guardar Partido</button>
+                <div style="display:flex; gap:0.5rem; justify-content:flex-end; margin-top:1rem;">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('create-game-modal')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Crear Partido</button>
+                </div>
             </form>
         </div>
     </div>
 
-    <div id="result-modal" class="modal">
+    <!-- MODAL PARA EDITAR PARTIDO -->
+    <div id="edit-game-modal" class="modal" style="display:none;">
         <div class="modal-content">
-            <span class="close-btn" onclick="closeModal('result-modal')">&times;</span>
-            <h3>Registrar Resultado Final</h3>
-            <p id="result-match-title" class="subtitle" style="margin-bottom: 1rem;"></p>
+            <h3 style="margin-bottom: 1rem;">Editar Partido</h3>
+            <form onsubmit="handleEditarPartido(event)">
+                <input type="hidden" id="edit-game-id">
+                <div class="form-group">
+                    <label>Equipo Visitante</label>
+                    <input type="text" id="edit-vis" required>
+                </div>
+                <div class="form-group">
+                    <label>Equipo Local</label>
+                    <input type="text" id="edit-loc" required>
+                </div>
+                <div class="form-group">
+                    <label>Fecha</label>
+                    <input type="date" id="edit-fecha" required>
+                </div>
+                <div class="form-group">
+                    <label>Hora</label>
+                    <div style="display:flex; gap:0.5rem;">
+                        <input type="text" id="edit-hora-val" placeholder="07:00" required style="flex:1;">
+                        <select id="edit-hora-ampm" style="width:90px;">
+                            <option value="PM">PM</option>
+                            <option value="AM">AM</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Estadio</label>
+                    <input type="text" id="edit-estadio" required>
+                </div>
+                <div style="display:flex; gap:0.5rem; justify-content:flex-end; margin-top:1rem;">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('edit-game-modal')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Ingresar Resultado -->
+    <div id="result-modal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <h3 id="result-match-title" style="margin-bottom: 1rem;">Resultado del Partido</h3>
             <form onsubmit="handleGuardarResultado(event)">
                 <input type="hidden" id="result-match-id">
-                <div class="form-group"><label id="label-vis-res">Carreras Visitante</label><input type="number" id="res-vis" required min="0" placeholder="0"></div>
-                <div class="form-group"><label id="label-loc-res">Carreras Local</label><input type="number" id="res-loc" required min="0" placeholder="0"></div>
-                <button type="submit" class="btn btn-primary btn-block">Finalizar y Calcular Puntos</button>
+                <div style="display: flex; gap: 1rem; align-items: center; justify-content: center; margin-bottom: 1.5rem;">
+                    <div style="text-align: center;">
+                        <label style="font-size: 0.8rem; margin-bottom: 0.25rem;">Visitante</label>
+                        <input type="number" id="res-vis" required min="0" class="score-input" style="width: 70px; height: 50px; font-size: 1.5rem;">
+                    </div>
+                    <span style="font-size: 1.5rem; font-weight: bold;">-</span>
+                    <div style="text-align: center;">
+                        <label style="font-size: 0.8rem; margin-bottom: 0.25rem;">Local</label>
+                        <input type="number" id="res-loc" required min="0" class="score-input" style="width: 70px; height: 50px; font-size: 1.5rem;">
+                    </div>
+                </div>
+                <div style="display:flex; gap:0.5rem; justify-content:flex-end; margin-top:1rem;">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('result-modal')">Cancelar</button>
+                    <button type="submit" class="btn btn-success">Procesar y Asignar Puntos</button>
+                </div>
             </form>
         </div>
     </div>
 
-    <div id="share-modal" class="modal">
-        <div class="modal-content text-center">
-            <span class="close-btn" onclick="closeModal('share-modal')">&times;</span>
-            <h3>Invitar Miembros</h3>
-            <p id="share-group-name" class="subtitle"></p>
-            <div id="qrcode" class="qr-container"></div>
-            <div class="invite-link-box">
-                <input type="text" id="share-url-input" readonly>
-                <button class="btn btn-secondary" onclick="copyInviteLink()"><i class="fa-solid fa-copy"></i></button>
+    <!-- Modal Ver Pronósticos de Otros en un Partido -->
+    <div id="ver-pronosticos-modal" class="modal" style="display:none;">
+        <div class="modal-content" style="max-width: 500px;">
+            <h3 id="ver-pred-match-title" style="margin-bottom: 1rem;">Pronósticos del Partido</h3>
+            <div class="table-container" style="max-height: 300px; overflow-y: auto;">
+                <table class="leaderboard-table">
+                    <thead>
+                        <tr>
+                            <th>Usuario</th>
+                            <th>Pronóstico</th>
+                            <th>Puntos</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ver-pred-tbody">
+                        <tr><td colspan="3">Cargando...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div style="display:flex; justify-content:flex-end; margin-top:1rem;">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('ver-pronosticos-modal')">Cerrar</button>
             </div>
         </div>
     </div>
 
+    <!-- Modal Compartir QR -->
+    <div id="share-modal" class="modal" style="display:none;">
+        <div class="modal-content" style="text-align: center;">
+            <h3 id="share-group-name" style="margin-bottom: 0.5rem;">Liga</h3>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">Escanea el código QR o copia el enlace de invitación.</p>
+            <div id="qrcode" style="display: flex; justify-content: center; margin-bottom: 1rem; background: white; padding: 1rem; border-radius: 8px;"></div>
+            <div class="form-group">
+                <input type="text" id="share-url-input" readonly style="font-size: 0.8rem; text-align: center;">
+            </div>
+            <div style="display:flex; gap:0.5rem; justify-content:center; margin-top:1rem;">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('share-modal')">Cerrar</button>
+                <button type="button" class="btn btn-primary" onclick="copyInviteLink()"><i class="fa-solid fa-copy"></i> Copiar Enlace</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Perfil de Usuario -->
+    <div id="profile-modal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <h3 style="margin-bottom: 1rem;">Editar Perfil y Vitrina</h3>
+            <form onsubmit="handleActualizarPerfil(event)">
+                <div class="form-group">
+                    <label>Nombre de Usuario</label>
+                    <input type="text" id="edit-username" required>
+                </div>
+                <div class="form-group">
+                    <label>Nueva Contraseña (Opcional)</label>
+                    <input type="password" id="edit-password" placeholder="Dejar en blanco para mantener actual">
+                </div>
+                <div class="form-group">
+                    <label>Mis Cartas Coleccionables Ganadas</label>
+                    <div id="user-profile-cards-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; max-height: 150px; overflow-y: auto; background: var(--bg-color); padding: 0.5rem; border-radius: 6px; border: 1px solid var(--border);">
+                        <!-- Cartas del usuario -->
+                    </div>
+                </div>
+                <div style="display:flex; gap:0.5rem; justify-content:flex-end; margin-top:1rem;">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('profile-modal')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Actualizar Perfil</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modales Administrativos -->
+    <div id="admin-users-modal" class="modal" style="display:none;">
+        <div class="modal-content" style="max-width: 600px;">
+            <h3 style="margin-bottom: 1rem;">Panel Admin: Gestión de Usuarios</h3>
+            <div class="table-container" style="max-height: 200px; overflow-y: auto; margin-bottom: 1rem;">
+                <table class="leaderboard-table">
+                    <thead><tr><th>Usuario</th><th>Email</th><th>Password</th><th>Acción</th></tr></thead>
+                    <tbody id="admin-users-tbody"></tbody>
+                </table>
+            </div>
+            <form onsubmit="handleAdminCrearUsuario(event)">
+                <h4 style="font-size: 0.95rem; margin-bottom: 0.5rem; color: var(--accent);">Crear Usuario Rápido</h4>
+                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                    <input type="text" id="adm-user" placeholder="Usuario" required style="flex: 1; padding: 0.5rem; background: var(--bg-color); border: 1px solid var(--border); color: white; border-radius: 4px;">
+                    <input type="email" id="adm-email" placeholder="Correo" required style="flex: 1; padding: 0.5rem; background: var(--bg-color); border: 1px solid var(--border); color: white; border-radius: 4px;">
+                    <input type="text" id="adm-pass" placeholder="Password" required style="flex: 1; padding: 0.5rem; background: var(--bg-color); border: 1px solid var(--border); color: white; border-radius: 4px;">
+                    <button type="submit" class="btn btn-primary" style="padding: 0.5rem 1rem;">Crear</button>
+                </div>
+            </form>
+            <div style="display:flex; justify-content:flex-end; margin-top:1.5rem;">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('admin-users-modal')">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="admin-standings-modal" class="modal" style="display:none;">
+        <div class="modal-content" style="max-width: 500px;">
+            <h3 style="margin-bottom: 1rem;">Ajustar Standings Base</h3>
+            <form onsubmit="handleGuardarStandingsBase(event)">
+                <div id="admin-standings-inputs" style="max-height: 300px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem;"></div>
+                <div style="display:flex; gap:0.5rem; justify-content:flex-end;">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('admin-standings-modal')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Ajustes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="admin-puntos-modal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <h3 style="margin-bottom: 1rem;">Modificar Puntos de Usuario</h3>
+            <form onsubmit="handleAdminGuardarPuntos(event)">
+                <div class="form-group">
+                    <label>Usuario</label>
+                    <select id="adm-puntos-user" required></select>
+                </div>
+                <div class="form-group">
+                    <label>Nuevo Puntaje Total</label>
+                    <input type="number" id="adm-puntos-val" required min="0">
+                </div>
+                <div style="display:flex; gap:0.5rem; justify-content:flex-end; margin-top:1rem;">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('admin-puntos-modal')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Actualizar Puntos</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Crear Carta Coleccionable -->
+    <div id="create-card-modal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <h3 style="margin-bottom: 1rem;">Crear Carta Coleccionable Única</h3>
+            <form onsubmit="handleCrearCarta(event)">
+                <div class="form-group">
+                    <label>Nombre de la Carta / Reconocimiento</label>
+                    <input type="text" id="card-name" required placeholder="Ej: MVP de la Semana 1">
+                </div>
+                <div class="form-group">
+                    <label>Ganador / Propietario Inicial</label>
+                    <select id="card-winner-user" required></select>
+                </div>
+                <div class="form-group">
+                    <label>URL de Imagen (Opcional)</label>
+                    <input type="text" id="card-image-url" placeholder="https://...">
+                </div>
+                <div style="display:flex; gap:0.5rem; justify-content:flex-end; margin-top:1rem;">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('create-card-modal')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Crear Carta</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Transferir Carta -->
+    <div id="transfer-card-modal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <h3 style="margin-bottom: 0.5rem;">Transferir Carta</h3>
+            <p id="transfer-card-title" style="font-size: 0.9rem; color: var(--accent); margin-bottom: 1rem;"></p>
+            <form onsubmit="handleTransferirCarta(event)">
+                <input type="hidden" id="transfer-card-id">
+                <div class="form-group">
+                    <label>Seleccionar Usuario Destino</label>
+                    <select id="transfer-user-target" required></select>
+                </div>
+                <div style="display:flex; gap:0.5rem; justify-content:flex-end; margin-top:1rem;">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('transfer-card-modal')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Transferir</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Script Principal -->
     <script src="app.js"></script>
 </body>
 </html>

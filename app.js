@@ -9,6 +9,14 @@ document.addEventListener('DOMContentLoaded', () => {
     verificarEstadoServidor();
     checkAuthUI();
     loadStandings();
+    
+    // Fecha por defecto en el día actual según hora de Venezuela
+    const filtroFecha = document.getElementById('filter-games-date');
+    if (filtroFecha) {
+        const fechaVzla = new Date().toLocaleDateString("en-CA", { timeZone: "America/Caracas" });
+        filtroFecha.value = fechaVzla;
+    }
+
     if (currentUser) {
         cargarGrupos();
         verificarEnlaceInvitacion();
@@ -191,7 +199,6 @@ async function handleAdminGuardarPuntos(e) {
     if (res.ok) { alert('Puntos modificados.'); closeModal('admin-puntos-modal'); loadLeaderboard(); loadHistory(); }
 }
 
-// CARTAS COLECCIONABLES SECRETAS
 async function cargarCartasColeccionables() {
     const select = document.getElementById('group-filter-cards');
     const grid = document.getElementById('cards-grid');
@@ -345,7 +352,6 @@ async function handleTransferirCarta(e) {
     }
 }
 
-// STANDINGS LVBP & ADMIN
 async function loadStandings() {
     const tbody = document.getElementById('standings-body');
     if (!tbody) return;
@@ -568,6 +574,42 @@ async function handleGuardarPartido(e) {
     if (res.ok) { closeModal('create-game-modal'); renderGames(); loadStandings(); }
 }
 
+function abrirModalEditarPartido(id, vis, loc, fecha, hora, estadio) {
+    document.getElementById('edit-game-id').value = id;
+    document.getElementById('edit-vis').value = vis;
+    document.getElementById('edit-loc').value = loc;
+    document.getElementById('edit-fecha').value = fecha;
+    
+    if (hora) {
+        const parts = hora.split(' ');
+        if (parts.length === 2) {
+            document.getElementById('edit-hora-val').value = parts[0];
+            document.getElementById('edit-hora-ampm').value = parts[1];
+        } else {
+            document.getElementById('edit-hora-val').value = hora;
+        }
+    }
+    document.getElementById('edit-estadio').value = estadio;
+    openModal('edit-game-modal');
+}
+
+async function handleEditarPartido(e) {
+    e.preventDefault();
+    const id = document.getElementById('edit-game-id').value;
+    const horaVal = document.getElementById('edit-hora-val').value;
+    const ampmVal = document.getElementById('edit-hora-ampm').value;
+    const partido = {
+        equipo_visitante: document.getElementById('edit-vis').value.trim(),
+        equipo_local: document.getElementById('edit-loc').value.trim(),
+        fecha_juego: document.getElementById('edit-fecha').value.trim(),
+        hora: `${horaVal} ${ampmVal}`,
+        estadio: document.getElementById('edit-estadio').value.trim()
+    };
+    const res = await fetch(API_URL + '/partidos/' + id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(partido) });
+    if (res.ok) { closeModal('edit-game-modal'); renderGames(); alert('Partido actualizado con éxito.'); }
+    else alert('Error al actualizar partido.');
+}
+
 async function eliminarPartido(id) {
     if (!confirm('¿Eliminar partido?')) return;
     const res = await fetch(API_URL + '/partidos/' + id, { method: 'DELETE' });
@@ -611,8 +653,28 @@ async function renderGames() {
     partidos.forEach(p => {
         const pred = pronosticos.find(x => x.partido_id === p.id) || { carreras_vis_pred: '', carreras_loc_pred: '', puntos_obtenidos: 0 };
         const tienePred = pred.carreras_vis_pred !== '' && pred.carreras_vis_pred !== null;
-        let estadoBadge = `<span class="badge">${p.estado}</span>`;
-        if (p.estado === 'FINALIZADO') estadoBadge = `<span class="badge badge-finished">FINALIZADO (${p.carreras_visitante} - ${p.carreras_local})</span>`;
+        
+        let badgeColor = '';
+        if (p.estado === 'PENDIENTE') badgeColor = 'background:var(--border); color:var(--text);';
+        else if (p.estado === 'CERRADO') badgeColor = 'background:#eab308; color:#000;';
+        else if (p.estado === 'SUSPENDIDO') badgeColor = 'background:#ef4444; color:#fff;';
+        else if (p.estado === 'FINALIZADO') badgeColor = 'background:var(--success); color:#fff;';
+
+        let estadoBadge = `<span class="badge" style="${badgeColor}">${p.estado}</span>`;
+        if (p.estado === 'FINALIZADO') estadoBadge = `<span class="badge badge-finished" style="background:var(--success); color:#fff;">FINALIZADO (${p.carreras_visitante} - ${p.carreras_local})</span>`;
+
+        let guardarBtnHtml = '';
+        if (p.estado === 'PENDIENTE') {
+            guardarBtnHtml = `<button class="btn" style="background:${tienePred ? 'var(--secondary)' : 'var(--primary)'}; color:#fff; padding:0.4rem 0.8rem; font-size:0.85rem; border-radius:6px; box-shadow:0 2px 4px rgba(0,0,0,0.2); transition:all 0.2s;" onclick="guardarPronostico(${p.id}, ${grupoId}, ${tienePred})"><i class="fa-solid fa-${tienePred ? 'pen-to-square' : 'floppy-disk'}"></i> ${tienePred ? 'Editar' : 'Guardar'}</button>`;
+        } else {
+            guardarBtnHtml = `<button class="btn btn-secondary" style="background: #0284c7; color: #fff; padding:0.4rem 0.8rem; font-size:0.85rem; border-radius:6px;" onclick="abrirModalVerPronosticosPartidos(${p.id}, '${p.equipo_visitante}', '${p.equipo_local}')"><i class="fa-solid fa-eye"></i> Ver</button>`;
+            if (p.estado === 'FINALIZADO') {
+                const pts = pred.puntos_obtenidos !== undefined ? pred.puntos_obtenidos : 0;
+                guardarBtnHtml += `<span class="points-earned-badge" style="background:rgba(16,185,129,0.2); border:1px solid var(--success); color:var(--success); padding:0.2rem 0.5rem; border-radius:4px; font-size:0.8rem;">+${pts} pts</span>`;
+            } else if (p.estado === 'SUSPENDIDO') {
+                guardarBtnHtml += `<span style="font-size:0.75rem; color:#ef4444; font-weight:bold; margin-left:0.5rem;">Suspendido (Sin Puntos)</span>`;
+            }
+        }
 
         let html = `<div class="game-card">
             <div class="game-info">
@@ -623,29 +685,27 @@ async function renderGames() {
             <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
                 <input type="number" class="score-input" id="pred-vis-${p.id}" value="${pred.carreras_vis_pred}" ${p.estado !== 'PENDIENTE' ? 'disabled' : ''}>
                 <span>-</span>
-                <input type="number" class="score-input" id="pred-loc-${p.id}" value="${pred.carreras_loc_pred}" ${p.estado !== 'PENDIENTE' ? 'disabled' : ''}>`;
-
-        if (p.estado === 'PENDIENTE') {
-            html += `<button class="${tienePred ? 'btn btn-secondary' : 'btn-primary'}" onclick="guardarPronostico(${p.id}, ${grupoId}, ${tienePred})">${tienePred ? 'Editar' : 'Guardar'}</button>`;
-        } else {
-            html += `<button class="btn btn-secondary" style="background: #0284c7; color: #fff;" onclick="abrirModalVerPronosticosPartidos(${p.id}, '${p.equipo_visitante}', '${p.equipo_local}')"><i class="fa-solid fa-eye"></i> Ver</button>`;
-            if (p.estado === 'FINALIZADO') {
-                const pts = pred.puntos_obtenidos !== undefined ? pred.puntos_obtenidos : 0;
-                const badgeStyle = pts === 0 ? 'background:rgba(239,68,68,0.2); border:1px solid var(--danger); color:var(--danger);' : 'background:rgba(16,185,129,0.2); border:1px solid var(--success); color:var(--success);';
-                html += `<span class="points-earned-badge" style="${badgeStyle}">+${pts} pts obtenidos</span>`;
-            }
-        }
+                <input type="number" class="score-input" id="pred-loc-${p.id}" value="${pred.carreras_loc_pred}" ${p.estado !== 'PENDIENTE' ? 'disabled' : ''}>
+                ${guardarBtnHtml}`;
 
         if (currentUser.id === 1) {
+            html += `<div style="display:flex; gap:0.3rem; margin-left:0.5rem; align-items:center;">`;
+            html += `<button class="btn btn-secondary" style="background:#6366f1; color:#fff; padding:0.4rem 0.6rem; font-size:0.8rem;" onclick="abrirModalEditarPartido(${p.id}, '${p.equipo_visitante}', '${p.equipo_local}', '${p.fecha_juego}', '${p.hora}', '${p.estadio}')" title="Editar detalles"><i class="fa-solid fa-pen"></i></button>`;
+            
             if (p.estado === 'PENDIENTE') {
-                html += `<button class="btn btn-secondary" style="background:#eab308; color:#000;" onclick="cambiarEstadoPartido(${p.id}, 'CERRADO')">Cerrar</button>`;
+                html += `<button class="btn btn-secondary" style="background:#eab308; color:#000; padding:0.4rem 0.6rem; font-size:0.8rem;" onclick="cambiarEstadoPartido(${p.id}, 'CERRADO')">Cerrar</button>`;
+                html += `<button class="btn btn-secondary" style="background:#ef4444; color:#fff; padding:0.4rem 0.6rem; font-size:0.8rem;" onclick="cambiarEstadoPartido(${p.id}, 'SUSPENDIDO')" title="Suspender juego">Suspender</button>`;
             } else if (p.estado === 'CERRADO') {
-                html += `<button class="btn btn-secondary" style="background:#64748b; color:#fff;" onclick="cambiarEstadoPartido(${p.id}, 'PENDIENTE')" title="Reabrir partido"><i class="fa-solid fa-rotate-left"></i> Reabrir</button>`;
-                html += `<button class="btn btn-secondary" onclick="abrirModalResultado(${p.id}, '${p.equipo_visitante}', '${p.equipo_local}')">Resultado</button>`;
+                html += `<button class="btn btn-secondary" style="background:#64748b; color:#fff; padding:0.4rem 0.6rem; font-size:0.8rem;" onclick="cambiarEstadoPartido(${p.id}, 'PENDIENTE')" title="Reabrir partido"><i class="fa-solid fa-rotate-left"></i></button>`;
+                html += `<button class="btn btn-secondary" style="background:#ef4444; color:#fff; padding:0.4rem 0.6rem; font-size:0.8rem;" onclick="cambiarEstadoPartido(${p.id}, 'SUSPENDIDO')" title="Suspender juego">Suspender</button>`;
+                html += `<button class="btn btn-secondary" style="padding:0.4rem 0.6rem; font-size:0.8rem;" onclick="abrirModalResultado(${p.id}, '${p.equipo_visitante}', '${p.equipo_local}')">Resultado</button>`;
+            } else if (p.estado === 'SUSPENDIDO') {
+                html += `<button class="btn btn-secondary" style="background:#eab308; color:#000; padding:0.4rem 0.6rem; font-size:0.8rem;" onclick="cambiarEstadoPartido(${p.id}, 'PENDIENTE')" title="Reprogramar / Reabrir"><i class="fa-solid fa-rotate-left"></i> Reprogramar</button>`;
             } else if (p.estado === 'FINALIZADO') {
-                html += `<button class="btn btn-secondary" style="background:#64748b; color:#fff;" onclick="cambiarEstadoPartido(${p.id}, 'PENDIENTE')" title="Reabrir y corregir resultado"><i class="fa-solid fa-rotate-left"></i> Reabrir</button>`;
+                html += `<button class="btn btn-secondary" style="background:#64748b; color:#fff; padding:0.4rem 0.6rem; font-size:0.8rem;" onclick="cambiarEstadoPartido(${p.id}, 'PENDIENTE')" title="Reabrir y corregir resultado"><i class="fa-solid fa-rotate-left"></i></button>`;
             }
-            html += `<button class="btn btn-danger" onclick="eliminarPartido(${p.id})"><i class="fa-solid fa-trash"></i></button>`;
+            html += `<button class="btn btn-danger" style="padding:0.4rem 0.6rem; font-size:0.8rem;" onclick="eliminarPartido(${p.id})"><i class="fa-solid fa-trash"></i></button>`;
+            html += `</div>`;
         }
         html += `</div></div>`;
         container.innerHTML += html;
@@ -695,7 +755,9 @@ async function handleGuardarResultado(e) {
     e.preventDefault();
     const partido_id = document.getElementById('result-match-id').value;
     const res = await fetch(API_URL + '/partidos/resultado', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ partido_id, carreras_visitante: parseInt(document.getElementById('res-vis').value), carreras_local: parseInt(document.getElementById('res-loc').value) }) });
+    const data = await res.json();
     if (res.ok) { closeModal('result-modal'); renderGames(); loadLeaderboard(); loadHistory(); loadStandings(); alert('Resultado procesado.'); }
+    else alert(data.error || 'Error al procesar resultado.');
 }
 
 async function loadLeaderboard() {
@@ -713,7 +775,6 @@ async function loadLeaderboard() {
     }
 }
 
-// HISTORIAL CON FILTRO DE RANGO DE FECHAS
 async function loadHistory() {
     const grupoId = document.getElementById('group-filter-history')?.value;
     const tbody = document.getElementById('history-body');
@@ -779,28 +840,6 @@ async function loadChampionships() {
         html += `</tbody></table></div>`;
         container.innerHTML = html;
     }
-}
-
-// WEB PUSH
-async function suscribirNotificacionesPush() {
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return alert('Tu navegador no soporta Web Push.');
-    try {
-        const reg = await navigator.serviceWorker.ready;
-        const keyRes = await fetch(API_URL + '/push/vapid-public-key');
-        const { publicKey } = await keyRes.json();
-        const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(publicKey) });
-        await fetch(API_URL + '/push/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ usuario_id: currentUser.id, subscription: sub }) });
-        alert('¡Notificaciones Push activadas con éxito! ⚾🔔');
-    } catch (e) { alert('Error al activar notificaciones.'); }
-}
-
-function urlBase64ToUint8Array(base64String) {
-    const padding = '='.repeat((4 - base64String.length % 4) % 4);
-    const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
-    const rawData = window.atob(base64);
-    const outputArray = new Uint8Array(rawData.length);
-    for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
-    return outputArray;
 }
 
 function switchTab(id) {
