@@ -68,7 +68,7 @@ async function initDB() {
         
         await pool.query(`CREATE TABLE IF NOT EXISTS standings_base (equipo TEXT PRIMARY KEY, jg_base INTEGER DEFAULT 0, jp_base INTEGER DEFAULT 0, ca_base INTEGER DEFAULT 0, cp_base INTEGER DEFAULT 0)`);
         
-        // TABLA DE CARTAS COLECCIONABLES ACTUALIZADA CON IMAGEN
+        // TABLA DE CARTAS COLECCIONABLES
         await pool.query(`CREATE TABLE IF NOT EXISTS cartas_coleccionables (
             id SERIAL PRIMARY KEY,
             grupo_id INTEGER REFERENCES grupos(id),
@@ -79,6 +79,19 @@ async function initDB() {
             imagen_url TEXT DEFAULT '',
             fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )`);
+
+        // LÍNEA DE SEGURIDAD: Añade la columna si la tabla ya existía y no la tenía (sin borrar nada)
+        await pool.query(`
+            DO $$ 
+            BEGIN 
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns 
+                    WHERE table_name='cartas_coleccionables' AND column_name='imagen_url'
+                ) THEN
+                    ALTER TABLE cartas_coleccionables ADD COLUMN imagen_url TEXT DEFAULT '';
+                END IF;
+            END $$;
+        `);
 
         for (const eq of EQUIPOS_LVBP_OFICIALES) {
             await pool.query(`INSERT INTO standings_base (equipo, jg_base, jp_base, ca_base, cp_base) VALUES ($1, 0, 0, 0, 0) ON CONFLICT (equipo) DO NOTHING`, [eq]);
