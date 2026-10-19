@@ -77,7 +77,8 @@ function abrirModalPerfil() {
     if (!currentUser) return;
     document.getElementById('edit-username').value = currentUser.username;
     document.getElementById('edit-password').value = '';
-    cargarCartasPerfilUsuario();
+    const container = document.getElementById('user-profile-cards-grid');
+    if (container) container.innerHTML = '';
     openModal('profile-modal');
 }
 
@@ -94,28 +95,28 @@ async function handleActualizarPerfil(e) {
     } else alert(data.error || 'Error al actualizar.');
 }
 
-async function cargarCartasPerfilUsuario() {
+async function abrirVitrinaCartasPerfil() {
     const grid = document.getElementById('user-profile-cards-grid');
     if (!grid) return;
-    grid.innerHTML = 'Cargando...';
+    grid.innerHTML = '<p style="font-size:0.85rem; color:var(--text-muted); text-align:center; grid-column:1/-1;">Cargando tu vitrina...</p>';
     try {
         const res = await fetch(API_URL + '/cartas/usuario/' + currentUser.id);
         const cartas = await res.json();
         grid.innerHTML = '';
         if (cartas.length === 0) {
-            grid.innerHTML = `<p style="font-size:0.8rem; color:var(--text-muted); grid-column:1/-1;">No tienes cartas en tu colección todavía.</p>`;
+            grid.innerHTML = `<p style="font-size:0.85rem; color:var(--text-muted); text-align:center; grid-column:1/-1;">No tienes cartas en tu colección todavía.</p>`;
             return;
         }
         cartas.forEach(c => {
-            let imagenHtml = c.imagen_url ? `<img src="${c.imagen_url}" style="width:100%; height:80px; object-fit:cover; border-radius:4px; margin-bottom:0.25rem;">` : '';
+            let imagenHtml = c.imagen_url ? `<img src="${c.imagen_url}" style="width:100%; height:90px; object-fit:cover; border-radius:4px; margin-bottom:0.35rem;">` : '';
             grid.innerHTML += `
                 <div style="background:var(--bg-color); border:1px solid var(--accent); border-radius:6px; padding:0.5rem; text-align:center;">
                     ${imagenHtml}
-                    <div style="font-size:0.8rem; font-weight:bold;">${c.nombre_carta}</div>
+                    <div style="font-size:0.8rem; font-weight:bold; color:var(--text);">${c.nombre_carta}</div>
                 </div>
             `;
         });
-    } catch (e) { grid.innerHTML = 'Error al cargar.'; }
+    } catch (e) { grid.innerHTML = '<p style="font-size:0.85rem; color:var(--danger); text-align:center; grid-column:1/-1;">Error al cargar la vitrina.</p>'; }
 }
 
 async function abrirModalAdminUsuarios() {
@@ -190,7 +191,7 @@ async function handleAdminGuardarPuntos(e) {
     if (res.ok) { alert('Puntos modificados.'); closeModal('admin-puntos-modal'); loadLeaderboard(); loadHistory(); }
 }
 
-// CARTAS COLECCIONABLES SECRETAS (CON SOPORTE DE IMAGEN, REVELAR/OCULTAR Y ELIMINAR)
+// CARTAS COLECCIONABLES SECRETAS
 async function cargarCartasColeccionables() {
     const select = document.getElementById('group-filter-cards');
     const grid = document.getElementById('cards-grid');

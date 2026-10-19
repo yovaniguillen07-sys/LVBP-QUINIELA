@@ -409,14 +409,22 @@
     <div id="profile-modal" class="modal">
         <div class="modal-content" style="max-width: 550px;">
             <span class="close-btn" onclick="closeModal('profile-modal')">&times;</span>
-            <h3>Mi Perfil & Vitrina de Cartas</h3>
-            <form onsubmit="handleActualizarPerfil(event)" style="margin-bottom: 1rem;">
+            <h3>Mi Perfil de Usuario</h3>
+            <form onsubmit="handleActualizarPerfil(event)" style="margin-bottom: 1.5rem;">
                 <div class="form-group"><label>Nuevo Nombre (Alias)</label><input type="text" id="edit-username" required placeholder="Tu nuevo alias"></div>
                 <div class="form-group"><label>Nueva Contraseña</label><input type="password" id="edit-password" required placeholder="Nueva contraseña"></div>
                 <button type="submit" class="btn btn-primary btn-block">Guardar Cambios</button>
             </form>
-            <h4 style="color:var(--accent); margin-bottom:0.5rem;"><i class="fa-solid fa-clone"></i> Mis Cartas Ganadas</h4>
-            <div id="user-profile-cards-grid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); gap:0.75rem; max-height:200px; overflow-y:auto;"></div>
+            
+            <hr style="border-color: var(--border); margin: 1rem 0;">
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                <h4 style="color:var(--accent); margin:0;"><i class="fa-solid fa-clone"></i> Vitrina de Cartas</h4>
+                <button type="button" class="btn btn-secondary" style="font-size: 0.8rem; padding: 0.3rem 0.6rem;" onclick="abrirVitrinaCartasPerfil()">
+                    <i class="fa-solid fa-eye"></i> Ver Mis Cartas
+                </button>
+            </div>
+            <div id="user-profile-cards-grid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); gap:0.75rem; max-height:220px; overflow-y:auto; padding-top:0.25rem;"></div>
         </div>
     </div>
 
