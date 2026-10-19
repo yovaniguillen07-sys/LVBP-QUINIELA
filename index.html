@@ -383,6 +383,17 @@
             <h1>Quiniela LVBP</h1>
         </div>
         <div class="user-nav">
+            <!-- Botones Admin y Acciones Rápidas (arriba a la derecha como lo tenías) -->
+            <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                <button class="btn btn-primary" id="btn-nuevo-partido" style="display:none; padding: 0.35rem 0.65rem; font-size: 0.8rem;" onclick="abrirModalCrearPartido()"><i class="fa-solid fa-plus"></i> Partido</button>
+                <button class="btn btn-secondary" id="btn-admin-standings" style="display:none; background:var(--gold); color:#000; padding: 0.35rem 0.65rem; font-size: 0.8rem;" onclick="abrirModalAdminStandings()"><i class="fa-solid fa-sliders"></i> Standings</button>
+                <button class="btn btn-success" id="btn-admin-puntos" style="display:none; padding: 0.35rem 0.65rem; font-size: 0.8rem;" onclick="abrirModalAdminPuntos()"><i class="fa-solid fa-pen-to-square"></i> Puntos</button>
+                <button class="btn btn-danger" id="btn-admin-crear-carta" style="display:none; padding: 0.35rem 0.65rem; font-size: 0.8rem;" onclick="abrirModalCrearCarta()"><i class="fa-solid fa-award"></i> Carta</button>
+                <button class="btn btn-secondary" id="btn-admin-panel" style="display:none; padding: 0.35rem 0.65rem; font-size: 0.8rem;" onclick="abrirModalAdminUsuarios()"><i class="fa-solid fa-users-gear"></i> Admin</button>
+                <button class="btn btn-secondary" style="padding: 0.35rem 0.65rem; font-size: 0.8rem;" onclick="descargarRespaldoServidor()" title="Descargar Respaldo"><i class="fa-solid fa-download"></i></button>
+                <label class="btn btn-secondary" style="padding: 0.35rem 0.65rem; font-size: 0.8rem; cursor: pointer; margin:0;" title="Restaurar Respaldo"><i class="fa-solid fa-upload"></i><input type="file" id="restore-file-input" style="display:none;" onchange="restaurarRespaldoServidor(event)"></label>
+            </div>
+            
             <div class="user-badge" onclick="abrirModalPerfil()" style="cursor: pointer;" title="Editar Perfil">
                 <div class="avatar-circle" id="user-avatar-container">GV</div>
                 <span id="user-display-name" style="font-weight: 600; font-size: 0.9rem;">Usuario</span>
@@ -401,17 +412,6 @@
             <button class="nav-btn" onclick="switchTab('tab-standings')"><i class="fa-solid fa-list-ol"></i><span>Tabla LVBP</span></button>
             <button class="nav-btn" onclick="switchTab('tab-historial')"><i class="fa-solid fa-clock-rotate-left"></i><span>Historial de Puntos</span></button>
             <button class="nav-btn" onclick="switchTab('tab-cartas')"><i class="fa-solid fa-id-card"></i><span>Cartas Coleccionables</span></button>
-            
-            <!-- CONTROLES DE ADMINISTRADOR -->
-            <div style="margin-top: auto; border-top: 1px solid var(--border); padding-top: 1rem; display: flex; flex-direction: column; gap: 0.35rem;">
-                <button class="nav-btn" id="btn-nuevo-partido" style="display:none; background:rgba(59,130,246,0.1); color:var(--primary);" onclick="abrirModalCrearPartido()"><i class="fa-solid fa-plus"></i><span>Crear Partido</span></button>
-                <button class="nav-btn" id="btn-admin-standings" style="display:none; background:rgba(251,191,36,0.1); color:var(--gold);" onclick="abrirModalAdminStandings()"><i class="fa-solid fa-sliders"></i><span>Ajustar Standings</span></button>
-                <button class="nav-btn" id="btn-admin-puntos" style="display:none; background:rgba(16,185,129,0.1); color:var(--success);" onclick="abrirModalAdminPuntos()"><i class="fa-solid fa-pen-to-square"></i><span>Modificar Puntos</span></button>
-                <button class="nav-btn" id="btn-admin-crear-carta" style="display:none; background:rgba(239,68,68,0.1); color:var(--danger);" onclick="abrirModalCrearCarta()"><i class="fa-solid fa-award"></i><span>Crear Carta Única</span></button>
-                <button class="nav-btn" id="btn-admin-panel" style="display:none; background:rgba(148,163,184,0.1); color:var(--text-muted);" onclick="abrirModalAdminUsuarios()"><i class="fa-solid fa-users-gear"></i><span>Gestión Usuarios</span></button>
-                <button class="nav-btn" style="background:rgba(255,255,255,0.03); color:var(--text-muted); font-size:0.8rem;" onclick="descargarRespaldoServidor()"><i class="fa-solid fa-download"></i><span>Descargar Respaldo</span></button>
-                <label class="nav-btn" style="background:rgba(255,255,255,0.03); color:var(--text-muted); font-size:0.8rem; cursor:pointer; margin:0;"><i class="fa-solid fa-upload"></i><span>Restaurar Datos</span><input type="file" id="restore-file-input" style="display:none;" onchange="restaurarRespaldoServidor(event)"></label>
-            </div>
         </aside>
 
         <!-- CONTENIDO PRINCIPAL -->
