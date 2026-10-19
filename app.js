@@ -107,9 +107,10 @@ async function cargarCartasPerfilUsuario() {
             return;
         }
         cartas.forEach(c => {
+            let imagenHtml = c.imagen_url ? `<img src="${c.imagen_url}" style="width:100%; height:80px; object-fit:cover; border-radius:4px; margin-bottom:0.25rem;">` : '';
             grid.innerHTML += `
                 <div style="background:var(--bg-color); border:1px solid var(--accent); border-radius:6px; padding:0.5rem; text-align:center;">
-                    <i class="fa-solid fa-clone" style="color:var(--accent); font-size:1.2rem; margin-bottom:0.25rem;"></i>
+                    ${imagenHtml}
                     <div style="font-size:0.8rem; font-weight:bold;">${c.nombre_carta}</div>
                 </div>
             `;
@@ -189,7 +190,7 @@ async function handleAdminGuardarPuntos(e) {
     if (res.ok) { alert('Puntos modificados.'); closeModal('admin-puntos-modal'); loadLeaderboard(); loadHistory(); }
 }
 
-// CARTAS COLECCIONABLES SECRETAS
+// CARTAS COLECCIONABLES SECRETAS (CON SOPORTE DE IMAGEN, REVELAR/OCULTAR Y ELIMINAR)
 async function cargarCartasColeccionables() {
     const select = document.getElementById('group-filter-cards');
     const grid = document.getElementById('cards-grid');
@@ -214,18 +215,31 @@ async function cargarCartasColeccionables() {
 
         cartas.forEach(c => {
             const esMia = c.propietario_actual_id === currentUser.id;
+            const esAdmin = currentUser.id === 1;
+
+            let adminControls = '';
+            if (esAdmin) {
+                adminControls = `
+                    <div style="margin-top:0.75rem; display:flex; gap:0.35rem; justify-content:center; flex-wrap:wrap;">
+                        <button class="btn btn-secondary" style="font-size:0.75rem; padding:0.25rem 0.5rem; background:var(--danger); color:#fff;" onclick="eliminarCarta(${c.id})" title="Eliminar carta"><i class="fa-solid fa-trash"></i></button>
+                        <button class="btn btn-secondary" style="font-size:0.75rem; padding:0.25rem 0.5rem;" onclick="toggleRevelarCarta(${c.id}, ${c.revelada})" title="${c.revelada ? 'Volver a Ocultar' : 'Revelar'}"><i class="fa-solid fa-${c.revelada ? 'eye-slash' : 'eye'}"></i> ${c.revelada ? 'Ocultar' : 'Revelar'}</button>
+                    </div>
+                `;
+            }
+
             if (!c.revelada) {
-                let revealBtn = currentUser.id === 1 ? `<button class="btn btn-primary" style="font-size:0.75rem; padding:0.25rem 0.5rem; margin-top:0.5rem;" onclick="revelarCarta(${c.id})"><i class="fa-solid fa-eye"></i> Revelar</button>` : '';
                 grid.innerHTML += `
                     <div style="background:linear-gradient(135deg, #1e293b, #0f172a); border:2px dashed var(--accent); border-radius:8px; padding:1.25rem; text-align:center; display:flex; flex-direction:column; justify-content:center; align-items:center; min-height:180px;">
                         <i class="fa-solid fa-lock" style="font-size:2rem; color:var(--accent); margin-bottom:0.5rem;"></i>
                         <div style="font-weight:bold; color:var(--accent); font-size:0.95rem;">Carta Secreta</div>
                         <div style="font-size:0.75rem; color:var(--text-muted); margin-top:0.25rem;">Se revelará al finalizar la semana</div>
-                        ${revealBtn}
+                        ${adminControls}
                     </div>
                 `;
             } else {
                 let transferBtn = esMia ? `<button class="btn btn-secondary" style="font-size:0.75rem; padding:0.25rem 0.5rem; margin-top:0.5rem;" onclick="abrirModalTransferirCarta(${c.id}, '${c.nombre_carta}')"><i class="fa-solid fa-right-left"></i> Transferir</button>` : '';
+                let imagenHtml = c.imagen_url ? `<img src="${c.imagen_url}" style="width:100%; height:120px; object-fit:cover; border-radius:6px; margin-bottom:0.5rem;">` : '';
+
                 grid.innerHTML += `
                     <div style="background:var(--card-bg); border:2px solid var(--success); border-radius:8px; padding:1rem; display:flex; flex-direction:column; justify-content:space-between;">
                         <div>
@@ -233,10 +247,14 @@ async function cargarCartasColeccionables() {
                                 <span class="badge" style="background:var(--success); color:#fff;">Única</span>
                                 <i class="fa-solid fa-award" style="color:var(--gold);"></i>
                             </div>
-                            <h4 style="font-size:1rem; margin-bottom:0.5rem; color:var(--text);">${c.nombre_carta}</h4>
+                            ${imagenHtml}
+                            <h4 style="font-size:1rem; margin-bottom:0.25rem; color:var(--text);">${c.nombre_carta}</h4>
                             <p style="font-size:0.8rem; color:var(--text-muted);">Poseedor: <strong style="color:var(--accent);">${c.propietario_nombre || 'N/A'}</strong></p>
                         </div>
-                        <div style="margin-top:1rem; text-align:center;">${transferBtn}</div>
+                        <div style="margin-top:0.75rem; text-align:center;">
+                            ${transferBtn}
+                            ${adminControls}
+                        </div>
                     </div>
                 `;
             }
@@ -260,23 +278,35 @@ async function handleCrearCarta(e) {
     const grupo_id = document.getElementById('group-filter-cards').value;
     const nombre_carta = document.getElementById('card-name').value.trim();
     const ganador_original_id = parseInt(document.getElementById('card-winner-user').value);
+    const imagen_url = document.getElementById('card-image-url').value.trim();
 
     const res = await fetch(API_URL + '/cartas/crear', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ grupo_id, nombre_carta, ganador_original_id })
+        body: JSON.stringify({ grupo_id, nombre_carta, ganador_original_id, imagen_url })
     });
     if (res.ok) {
-        alert('¡Carta creada exitosamente en modo secreto!');
+        alert('¡Carta creada exitosamente!');
         closeModal('create-card-modal');
         document.getElementById('card-name').value = '';
+        document.getElementById('card-image-url').value = '';
         cargarCartasColeccionables();
     } else alert('Error al crear carta.');
 }
 
-async function revelarCarta(cartaId) {
-    if (!confirm('¿Deseas revelar esta carta públicamente?')) return;
-    const res = await fetch(API_URL + '/cartas/revelar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ carta_id: cartaId }) });
+async function toggleRevelarCarta(cartaId, estadoActual) {
+    const nuevoEstado = !estadoActual;
+    const res = await fetch(API_URL + '/cartas/revelar', { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ carta_id: cartaId, revelada: nuevoEstado }) 
+    });
+    if (res.ok) cargarCartasColeccionables();
+}
+
+async function eliminarCarta(cartaId) {
+    if (!confirm('¿Estás seguro de eliminar esta carta coleccionable?')) return;
+    const res = await fetch(API_URL + '/cartas/' + cartaId, { method: 'DELETE' });
     if (res.ok) cargarCartasColeccionables();
 }
 
@@ -312,7 +342,9 @@ async function handleTransferirCarta(e) {
         const d = await res.json();
         alert(d.error || 'Error al transferir.');
     }
-}// STANDINGS LVBP & ADMIN
+}
+
+// STANDINGS LVBP & ADMIN
 async function loadStandings() {
     const tbody = document.getElementById('standings-body');
     if (!tbody) return;

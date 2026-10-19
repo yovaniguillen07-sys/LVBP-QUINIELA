@@ -68,6 +68,7 @@ async function initDB() {
         
         await pool.query(`CREATE TABLE IF NOT EXISTS standings_base (equipo TEXT PRIMARY KEY, jg_base INTEGER DEFAULT 0, jp_base INTEGER DEFAULT 0, ca_base INTEGER DEFAULT 0, cp_base INTEGER DEFAULT 0)`);
         
+        // TABLA DE CARTAS COLECCIONABLES ACTUALIZADA CON IMAGEN
         await pool.query(`CREATE TABLE IF NOT EXISTS cartas_coleccionables (
             id SERIAL PRIMARY KEY,
             grupo_id INTEGER REFERENCES grupos(id),
@@ -75,6 +76,7 @@ async function initDB() {
             ganador_original_id INTEGER REFERENCES usuarios(id),
             propietario_actual_id INTEGER REFERENCES usuarios(id),
             revelada BOOLEAN DEFAULT FALSE,
+            imagen_url TEXT DEFAULT '',
             fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )`);
 
@@ -196,8 +198,8 @@ app.post('/api/admin/restaurar', async (req, res) => {
         if (data.cartas_coleccionables) {
             for (const c of data.cartas_coleccionables) {
                 await client.query(
-                    'INSERT INTO cartas_coleccionables (id, grupo_id, nombre_carta, ganador_original_id, propietario_actual_id, revelada, fecha_creacion) VALUES (\$1, \$2, \$3, \$4, \$5, \$6, \$7)',
-                    [c.id, c.grupo_id, c.nombre_carta, c.ganador_original_id, c.propietario_actual_id, c.revelada, c.fecha_creacion]
+                    'INSERT INTO cartas_coleccionables (id, grupo_id, nombre_carta, ganador_original_id, propietario_actual_id, revelada, imagen_url, fecha_creacion) VALUES (\$1, \$2, \$3, \$4, \$5, \$6, \$7, \$8)',
+                    [c.id, c.grupo_id, c.nombre_carta, c.ganador_original_id, c.propietario_actual_id, c.revelada, c.imagen_url || '', c.fecha_creacion]
                 );
             }
         }
@@ -240,12 +242,12 @@ app.get('/api/cartas/usuario/:usuarioId', async (req, res) => {
 });
 
 app.post('/api/cartas/crear', async (req, res) => {
-    const { grupo_id, nombre_carta, ganador_original_id } = req.body;
+    const { grupo_id, nombre_carta, ganador_original_id, imagen_url } = req.body;
     try {
         const result = await pool.query(
-            `INSERT INTO cartas_coleccionables (grupo_id, nombre_carta, ganador_original_id, propietario_actual_id, revelada) 
-             VALUES ($1, $2, $3, $3, FALSE) RETURNING id`,
-            [grupo_id, nombre_carta, ganador_original_id]
+            `INSERT INTO cartas_coleccionables (grupo_id, nombre_carta, ganador_original_id, propietario_actual_id, revelada, imagen_url) 
+             VALUES ($1, $2, $3, $3, FALSE, $4) RETURNING id`,
+            [grupo_id, nombre_carta, ganador_original_id, imagen_url || '']
         );
         res.json({ status: 'ok', cartaId: result.rows[0].id });
     } catch (err) {
@@ -254,9 +256,18 @@ app.post('/api/cartas/crear', async (req, res) => {
 });
 
 app.post('/api/cartas/revelar', async (req, res) => {
-    const { carta_id } = req.body;
+    const { carta_id, revelada } = req.body;
     try {
-        await pool.query(`UPDATE cartas_coleccionables SET revelada = TRUE WHERE id = $1`, [carta_id]);
+        await pool.query(`UPDATE cartas_coleccionables SET revelada = $1 WHERE id = $2`, [revelada, carta_id]);
+        res.json({ status: 'ok' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.delete('/api/cartas/:id', async (req, res) => {
+    try {
+        await pool.query(`DELETE FROM cartas_coleccionables WHERE id = $1`, [req.params.id]);
         res.json({ status: 'ok' });
     } catch (err) {
         res.status(500).json({ error: err.message });
