@@ -10,12 +10,12 @@ self.addEventListener('activate', (e) => {
     e.waitUntil(clients.claim());
 });
 
-// Interceptador de peticiones para mantener el funcionamiento fluido de la app
+// Manejo de red optimizado y limpio para evitar bloqueos con la API en Render
 self.addEventListener('fetch', (e) => {
-    e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
+    e.respondWith(fetch(e.request));
 });
 
-// NUEVO: Escucha y muestra las notificaciones Push enviadas desde el servidor (2 horas antes)
+// Escucha y muestra las notificaciones Push enviadas desde el servidor (2 horas antes)
 self.addEventListener('push', (event) => {
     let data = { 
         title: '⚾ ¡Hora de alistar las carreras! 🏟️', 
@@ -32,7 +32,7 @@ self.addEventListener('push', (event) => {
 
     const options = {
         body: data.body,
-        icon: '/icon.png', // Icono por defecto de la app
+        icon: '/icon.png', 
         badge: '/icon.png',
         vibrate: [200, 100, 200],
         data: { url: self.location.origin }
@@ -43,7 +43,7 @@ self.addEventListener('push', (event) => {
     );
 });
 
-// NUEVO: Acción al hacer clic sobre la notificación en el teléfono o PC
+// Acción al hacer clic sobre la notificación en el teléfono o PC
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
     event.waitUntil(
