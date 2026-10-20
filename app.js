@@ -154,8 +154,46 @@ async function abrirModalAdminUsuarios() {
         const tbody = document.getElementById('admin-users-tbody');
         tbody.innerHTML = '';
         usuarios.forEach(u => {
-            tbody.innerHTML += `<tr><td>${u.username}</td><td>${u.email}</td><td><code>${u.password}</code></td><td>${u.id !== 1 ? '<button class="btn btn-danger" style="padding:0.25rem 0.5rem;font-size:0.8rem;" onclick="adminEliminarUsuario(' + u.id + ')">Eliminar</button>' : 'Admin'}</td></tr>`;
+            let accionHtml = '';
+            if (u.id === 1) {
+                accionHtml = '<span style="color:var(--accent); font-weight:bold;">Admin</span>';
+            } else {
+                accionHtml = `
+                    <div style="display:flex; gap:0.25rem;">
+                        <button class="btn btn-primary" style="padding:0.25rem 0.5rem; font-size:0.75rem;" onclick="adminActualizarUsuario(${u.id})" title="Guardar cambios"><i class="fa-solid fa-floppy-disk"></i></button>
+                        <button class="btn btn-danger" style="padding:0.25rem 0.5rem; font-size:0.75rem;" onclick="adminEliminarUsuario(${u.id})" title="Eliminar usuario"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                `;
+            }
+
+            tbody.innerHTML += `
+                <tr>
+                    <td><input type="text" id="adm-edit-user-${u.id}" value="${u.username}" style="padding:0.25rem; background:var(--bg-color); border:1px solid var(--border); color:var(--text); border-radius:4px; width:110px;" ${u.id === 1 ? 'disabled' : ''}></td>
+                    <td style="font-size:0.85rem;">${u.email}</td>
+                    <td><input type="text" id="adm-edit-pass-${u.id}" value="${u.password}" style="padding:0.25rem; background:var(--bg-color); border:1px solid var(--border); color:var(--text); border-radius:4px; width:100px;" ${u.id === 1 ? 'disabled' : ''}></td>
+                    <td>${accionHtml}</td>
+                </tr>
+            `;
         });
+    }
+}
+
+async function adminActualizarUsuario(id) {
+    const username = document.getElementById(`adm-edit-user-${id}`).value.trim();
+    const password = document.getElementById(`adm-edit-pass-${id}`).value.trim();
+    if (!username || !password) return alert('Los campos no pueden estar vacíos.');
+
+    const res = await fetch(API_URL + '/admin/usuarios/' + id, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+    });
+    const data = await res.json();
+    if (res.ok) {
+        alert('¡Usuario actualizado con éxito!');
+        abrirModalAdminUsuarios();
+    } else {
+        alert(data.error || 'Error al actualizar el usuario.');
     }
 }
 
@@ -695,7 +733,9 @@ function enviarRecordatorioWhatsApp() {
     if (!grupoId) return alert('Selecciona una liga.');
     const g = gruposListado.find(x => x.id == grupoId);
     const link = window.location.origin + window.location.pathname + '?join=' + (g ? g.codigo_acceso : '');
-    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(`⚾🔥 ¡Pronósticos abiertos en la Quiniela *\${g ? g.nombre : ''}*! Entra ya: \${link}`)}`, '_blank');
+    const nombreLiga = g ? g.nombre : '';
+    const mensaje = `⚾🔥 ¡Pronósticos abiertos en la Quiniela *${nombreLiga}*! Entra ya: ${link}`;
+    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(mensaje)}`, '_blank');
 }
 
 async function abrirModalVerPronosticosPartidos(partidoId, vis, loc) {
@@ -855,7 +895,7 @@ function openShareModal(grupoId) {
     document.getElementById('share-group-name').textContent = g.nombre;
     const url = window.location.origin + window.location.pathname + '?join=' + g.codigo_acceso;
     document.getElementById('share-url-input').value = url;
-    document.getElementById('qrcode').innerHTML = 'new QRCode(...)'; // (Mantiene la lógica original del QR)
+    document.getElementById('qrcode').innerHTML = ''; 
     new QRCode(document.getElementById('qrcode'), { text: url, width: 160, height: 160 });
     openModal('share-modal');
 }

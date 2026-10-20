@@ -558,6 +558,15 @@ app.get('/api/admin/usuarios', async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
+app.put('/api/admin/usuarios/:id', async (req, res) => {
+    const { username, password } = req.body;
+    try {
+        await pool.query('UPDATE usuarios SET username = $1, password = $2 WHERE id = $3', [username, password, req.params.id]);
+        res.json({ status: 'ok' });
+    } catch (err) {
+        res.status(400).json({ error: 'El nombre de usuario ya está en uso o hubo un error.' });
+    }
+});
 
 app.post('/api/admin/usuarios', async (req, res) => {
     const { username, email, password } = req.body;
