@@ -199,7 +199,6 @@ async function handleAdminGuardarPuntos(e) {
     if (res.ok) { alert('Puntos modificados.'); closeModal('admin-puntos-modal'); loadLeaderboard(); loadHistory(); }
 }
 
-// CARTAS COLECCIONABLES SECRETAS
 async function cargarCartasColeccionables() {
     const select = document.getElementById('group-filter-cards');
     const grid = document.getElementById('cards-grid');
@@ -353,7 +352,6 @@ async function handleTransferirCarta(e) {
     }
 }
 
-// STANDINGS LVBP & ADMIN
 async function loadStandings() {
     const tbody = document.getElementById('standings-body');
     if (!tbody) return;
@@ -559,7 +557,21 @@ async function eliminarGrupo(grupoId) {
     if (res.ok) cargarGrupos();
 }
 
-function abrirModalCrearPartido() { openModal('create-game-modal'); }
+// NUEVA FUNCIÓN CORREGIDA: Limpia formulario y fija minutos en 00 por defecto
+function abrirModalCrearPartido() { 
+    document.getElementById('edit-game-id').value = '';
+    document.getElementById('new-vis').value = '';
+    document.getElementById('new-loc').value = '';
+    
+    const fechaVzla = new Date().toLocaleDateString("en-CA", { timeZone: "America/Caracas" });
+    document.getElementById('new-fecha').value = fechaVzla;
+    
+    document.getElementById('new-hora-val').value = '19:00';
+    document.getElementById('new-hora-ampm').value = 'PM';
+    document.getElementById('new-estadio').value = '';
+
+    openModal('create-game-modal'); 
+}
 
 async function handleGuardarPartido(e) {
     e.preventDefault();
@@ -634,7 +646,6 @@ async function renderGames() {
                 <input type="number" class="score-input" id="pred-loc-${p.id}" value="${pred.carreras_loc_pred}" ${p.estado !== 'PENDIENTE' ? 'disabled' : ''}>`;
 
         if (p.estado === 'PENDIENTE') {
-            // Estilo idéntico al botón Cerrar (fondo amarillo, texto oscuro)
             html += `<button class="btn" style="background: #eab308; color: #000; padding: 0.5rem 1rem; border-radius: 6px; font-weight: 600;" onclick="guardarPronostico(${p.id}, ${grupoId}, ${tienePred})"><i class="fa-solid fa-${tienePred ? 'pen-to-square' : 'floppy-disk'}"></i> ${tienePred ? 'Editar' : 'Guardar'}</button>`;
         } else {
             html += `<button class="btn btn-secondary" style="background: #0284c7; color: #fff;" onclick="abrirModalVerPronosticosPartidos(${p.id}, '${p.equipo_visitante}', '${p.equipo_local}')"><i class="fa-solid fa-eye"></i> Ver</button>`;
@@ -666,7 +677,7 @@ function enviarRecordatorioWhatsApp() {
     if (!grupoId) return alert('Selecciona una liga.');
     const g = gruposListado.find(x => x.id == grupoId);
     const link = window.location.origin + window.location.pathname + '?join=' + (g ? g.codigo_acceso : '');
-    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(`⚾🔥 ¡Pronósticos abiertos en la Quiniela *\${g ? g.nombre : ''}*! Entra ya: \${link}`)}`, '_blank');
+    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(`⚾🔥 ¡Pronósticos abiertos en la Quiniela *${g ? g.nombre : ''}*! Entra ya: ${link}`)}`, '_blank');
 }
 
 async function abrirModalVerPronosticosPartidos(partidoId, vis, loc) {
@@ -722,7 +733,6 @@ async function loadLeaderboard() {
     }
 }
 
-// HISTORIAL CON FILTRO DE RANGO DE FECHAS
 async function loadHistory() {
     const grupoId = document.getElementById('group-filter-history')?.value;
     const tbody = document.getElementById('history-body');
@@ -790,7 +800,7 @@ async function loadChampionships() {
     }
 }
 
-// WEB PUSH
+// WEB PUSH SUBSCRIPTION
 async function suscribirNotificacionesPush() {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) return alert('Tu navegador no soporta Web Push.');
     try {
