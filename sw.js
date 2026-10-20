@@ -32,8 +32,8 @@ self.addEventListener('push', (event) => {
 
     const options = {
         body: data.body,
-        icon: '/icon.png', 
-        badge: '/icon.png',
+        icon: '/ball.png', 
+        badge: '/ball.png',
         vibrate: [200, 100, 200],
         data: { url: self.location.origin }
     };
