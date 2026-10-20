@@ -21,6 +21,25 @@ document.addEventListener('DOMContentLoaded', () => {
         cargarGrupos();
         verificarEnlaceInvitacion();
     }
+
+    // Auto-actualización en segundo plano (Polling cada 30 segundos)
+    // Verifica que el usuario no esté escribiendo activamente para no interrumpirlo
+    setInterval(() => {
+        const activeTab = document.querySelector('.tab-content.active');
+        if (!activeTab) return;
+
+        if (activeTab.id === 'games-tab') {
+            const activeEl = document.activeElement;
+            const isTyping = activeEl && activeEl.classList.contains('score-input');
+            if (!isTyping) {
+                renderGames();
+            }
+        } else if (activeTab.id === 'leaderboard-tab') {
+            loadLeaderboard();
+        } else if (activeTab.id === 'standings-tab') {
+            loadStandings();
+        }
+    }, 30000);
 });
 
 async function verificarEstadoServidor() {
@@ -557,7 +576,6 @@ async function eliminarGrupo(grupoId) {
     if (res.ok) cargarGrupos();
 }
 
-// NUEVA FUNCIÓN CORREGIDA: Limpia formulario y fija minutos en 00 por defecto
 function abrirModalCrearPartido() { 
     document.getElementById('edit-game-id').value = '';
     document.getElementById('new-vis').value = '';
@@ -677,7 +695,7 @@ function enviarRecordatorioWhatsApp() {
     if (!grupoId) return alert('Selecciona una liga.');
     const g = gruposListado.find(x => x.id == grupoId);
     const link = window.location.origin + window.location.pathname + '?join=' + (g ? g.codigo_acceso : '');
-    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(`⚾🔥 ¡Pronósticos abiertos en la Quiniela *${g ? g.nombre : ''}*! Entra ya: ${link}`)}`, '_blank');
+    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(`⚾🔥 ¡Pronósticos abiertos en la Quiniela *\${g ? g.nombre : ''}*! Entra ya: \${link}`)}`, '_blank');
 }
 
 async function abrirModalVerPronosticosPartidos(partidoId, vis, loc) {
@@ -837,7 +855,7 @@ function openShareModal(grupoId) {
     document.getElementById('share-group-name').textContent = g.nombre;
     const url = window.location.origin + window.location.pathname + '?join=' + g.codigo_acceso;
     document.getElementById('share-url-input').value = url;
-    document.getElementById('qrcode').innerHTML = '';
+    document.getElementById('qrcode').innerHTML = 'new QRCode(...)'; // (Mantiene la lógica original del QR)
     new QRCode(document.getElementById('qrcode'), { text: url, width: 160, height: 160 });
     openModal('share-modal');
 }
