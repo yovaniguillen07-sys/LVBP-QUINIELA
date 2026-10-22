@@ -486,6 +486,44 @@ async function verificarEnlaceInvitacion() {
     if (res.ok) { alert('Te has unido exitosamente.'); cargarGrupos(); }
 }
 
+// NUEVO: Funciones para navegar directamente al hacer clic en el nombre de la liga
+function activarPestana(tabId) {
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    
+    const targetTab = document.getElementById(tabId);
+    if (targetTab) targetTab.classList.add('active');
+
+    document.querySelectorAll('.sidebar .nav-btn').forEach(btn => {
+        const onclickAttr = btn.getAttribute('onclick');
+        if (onclickAttr && onclickAttr.includes(tabId)) {
+            btn.classList.add('active');
+        }
+    });
+}
+
+async function seleccionarLigaYVerPartidos(grupoId) {
+    const g = gruposListado.find(x => x.id === grupoId);
+    if (!g) return;
+
+    const esMiembro = misLigasIds.has(grupoId);
+
+    if (esMiembro) {
+        activarPestana('games-tab');
+        const selectGame = document.getElementById('group-select-game');
+        if (selectGame) {
+            selectGame.value = grupoId;
+            renderGames();
+        }
+    } else {
+        if (g.estado === 'EN_PROGRESO' || g.estado === 'FINALIZADA') {
+            alert(`⚠️ La liga "${g.nombre}" ya está ${g.estado === 'EN_PROGRESO' ? 'en curso' : 'finalizada'}. No es posible unirse en este momento.`);
+        } else {
+            alert(`🔒 No estás registrado en la liga "${g.nombre}". Debes unirte primero utilizando el botón "Unirse" o el enlace de invitación.`);
+        }
+    }
+}
+
 function renderGroups() {
     const container = document.getElementById('groups-list');
     if (!container) return;
@@ -503,7 +541,10 @@ function renderGroups() {
         if (finalizada) badgeStyle = 'background:var(--accent); color:#000;';
 
         let html = `<div class="group-card">
-            <div class="group-card-header"><h3>${g.nombre}</h3><span class="badge" style="${badgeStyle}">${g.estado}</span></div>
+            <div class="group-card-header">
+                <h3 style="cursor: pointer; color: var(--accent); transition: color 0.2s;" onclick="seleccionarLigaYVerPartidos(${g.id})" title="Haz clic para ir a los pronósticos de esta liga">${g.nombre}</h3>
+                <span class="badge" style="${badgeStyle}">${g.estado}</span>
+            </div>
             <p style="color: var(--text-muted); font-size: 0.85rem;">Tipo: <strong>${g.tipo}</strong> | Código: <strong>${g.codigo_acceso}</strong></p>
             <div class="group-card-actions">`;
 
@@ -629,8 +670,30 @@ function abrirModalCrearPartido() {
     openModal('create-game-modal'); 
 }
 
+// NUEVO: Función para abrir la modal de partidos en modo Edición
+function abrirModalEditarPartido(id, vis, loc, fecha, hora, estadio) {
+    document.getElementById('edit-game-id').value = id;
+    document.getElementById('new-vis').value = vis;
+    document.getElementById('new-loc').value = loc;
+    document.getElementById('new-fecha').value = fecha;
+    
+    if (hora) {
+        const partes = hora.split(' ');
+        if (partes.length >= 2) {
+            document.getElementById('new-hora-val').value = partes[0];
+            document.getElementById('new-hora-ampm').value = partes[1];
+        } else {
+            document.getElementById('new-hora-val').value = hora;
+        }
+    }
+    document.getElementById('new-estadio').value = estadio || '';
+    openModal('create-game-modal');
+}
+
+// NUEVO: Manejador unificado para crear o actualizar partidos
 async function handleGuardarPartido(e) {
     e.preventDefault();
+    const editId = document.getElementById('edit-game-id').value;
     const horaVal = document.getElementById('new-hora-val').value;
     const ampmVal = document.getElementById('new-hora-ampm').value;
     const partido = {
@@ -640,8 +703,29 @@ async function handleGuardarPartido(e) {
         hora: `${horaVal} ${ampmVal}`,
         estadio: document.getElementById('new-estadio').value.trim()
     };
-    const res = await fetch(API_URL + '/partidos/crear', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(partido) });
-    if (res.ok) { closeModal('create-game-modal'); renderGames(); loadStandings(); }
+
+    const endpoint = editId ? `${API_URL}/partidos/${editId}` : `${API_URL}/partidos/crear`;
+    const method = editId ? 'PUT' : 'POST';
+
+    try {
+        const res = await fetch(endpoint, { 
+            method: method, 
+            headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify(partido) 
+        });
+
+        if (res.ok) { 
+            closeModal('create-game-modal'); 
+            renderGames(); 
+            loadStandings(); 
+            alert(editId ? '¡Partido actualizado con éxito!' : '¡Partido creado con éxito!');
+        } else {
+            const data = await res.json();
+            alert(data.error || 'Error al guardar el partido.');
+        }
+    } catch (err) {
+        alert('Error de conexión con el servidor.');
+    }
 }
 
 async function eliminarPartido(id) {
@@ -713,6 +797,9 @@ async function renderGames() {
         }
 
         if (currentUser.id === 1) {
+            // Botón de Editar Partido
+            html += `<button class="btn btn-secondary" style="background:#0284c7; color:#fff;" onclick="abrirModalEditarPartido(${p.id}, '${p.equipo_visitante}', '${p.equipo_local}', '${p.fecha_juego}', '${p.hora}', '${p.estadio}')" title="Editar partido"><i class="fa-solid fa-pen"></i></button>`;
+
             if (p.estado === 'PENDIENTE') {
                 html += `<button class="btn btn-secondary" style="background:#eab308; color:#000;" onclick="cambiarEstadoPartido(${p.id}, 'CERRADO')">Cerrar</button>`;
             } else if (p.estado === 'CERRADO') {
