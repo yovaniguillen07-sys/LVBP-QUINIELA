@@ -860,6 +860,11 @@ async function guardarPronostico(partidoId, grupoId, ya) {
 function abrirModalResultado(partidoId, vis, loc) {
     document.getElementById('result-match-id').value = partidoId;
     document.getElementById('result-match-title').textContent = vis + ' vs ' + loc;
+    
+    // Limpiar los inputs para que no arrastren el resultado anterior
+    document.getElementById('res-vis').value = '';
+    document.getElementById('res-loc').value = '';
+    
     openModal('result-modal');
 }
 
