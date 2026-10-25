@@ -787,6 +787,12 @@ app.get('/api/pronosticos/partido/:grupoId/:partidoId', async (req, res) => {
 app.post('/api/pronosticos', async (req, res) => {
     const { grupo_id, usuario_id, partido_id, carreras_vis_pred, carreras_loc_pred } = req.body;
     try {
+        // VALIDACIÓN: Verificar si la liga está finalizada
+        const grupoRes = await pool.query('SELECT estado FROM grupos WHERE id = $1', [grupo_id]);
+        if (grupoRes.rows.length > 0 && grupoRes.rows[0].estado === 'FINALIZADA') {
+            return res.status(400).json({ error: 'Esta liga ya está finalizada. No se pueden hacer ni modificar pronósticos.' });
+        }
+
         await pool.query(`INSERT INTO pronosticos (grupo_id, usuario_id, partido_id, carreras_vis_pred, carreras_loc_pred) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (grupo_id, usuario_id, partido_id) DO UPDATE SET carreras_vis_pred = EXCLUDED.carreras_vis_pred, carreras_loc_pred = EXCLUDED.carreras_loc_pred`, [grupo_id, usuario_id, partido_id, carreras_vis_pred, carreras_loc_pred]);
         res.json({ status: 'ok' });
     } catch (err) {
@@ -821,10 +827,11 @@ app.post('/api/partidos/resultado', async (req, res) => {
         }
 
         const totalesRes = await pool.query(`
-            SELECT grupo_id, usuario_id, SUM(puntos_obtenidos) as total 
-            FROM pronosticos 
-            WHERE grupo_id IN (SELECT DISTINCT grupo_id FROM pronosticos WHERE partido_id = $1)
-            GROUP BY grupo_id, usuario_id
+            SELECT pr.grupo_id, pr.usuario_id, SUM(pr.puntos_obtenidos) as total 
+            FROM pronosticos pr
+            JOIN grupos g ON pr.grupo_id = g.id
+            WHERE pr.partido_id = $1 AND g.estado != 'FINALIZADA'
+            GROUP BY pr.grupo_id, pr.usuario_id
         `, [partido_id]);
 
         for (let r of totalesRes.rows) {

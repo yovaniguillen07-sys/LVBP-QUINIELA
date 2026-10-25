@@ -748,6 +748,10 @@ async function renderGames() {
     const fechaFiltro = document.getElementById('filter-games-date')?.value;
     if (!container || !grupoId) return;
 
+    // Identificar si la liga actual está finalizada
+    const grupoActual = gruposListado.find(x => x.id === grupoId);
+    const esLigaFinalizada = grupoActual && grupoActual.estado === 'FINALIZADA';
+
     let partidos = [], pronosticos = [];
     try {
         const [resP, resPr] = await Promise.all([
@@ -781,14 +785,18 @@ async function renderGames() {
                 <div class="stadium"><i class="fa-solid fa-location-dot"></i> ${p.estadio}</div>
             </div>
             <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
-                <input type="number" class="score-input" id="pred-vis-${p.id}" value="${pred.carreras_vis_pred}" ${p.estado !== 'PENDIENTE' ? 'disabled' : ''}>
+                <input type="number" class="score-input" id="pred-vis-${p.id}" value="${pred.carreras_vis_pred}" ${p.estado !== 'PENDIENTE' || esLigaFinalizada ? 'disabled' : ''}>
                 <span>-</span>
-                <input type="number" class="score-input" id="pred-loc-${p.id}" value="${pred.carreras_loc_pred}" ${p.estado !== 'PENDIENTE' ? 'disabled' : ''}>`;
+                <input type="number" class="score-input" id="pred-loc-${p.id}" value="${pred.carreras_loc_pred}" ${p.estado !== 'PENDIENTE' || esLigaFinalizada ? 'disabled' : ''}>`;
 
-        if (p.estado === 'PENDIENTE') {
+        if (p.estado === 'PENDIENTE' && !esLigaFinalizada) {
             html += `<button class="btn" style="background: #eab308; color: #000; padding: 0.5rem 1rem; border-radius: 6px; font-weight: 600;" onclick="guardarPronostico(${p.id}, ${grupoId}, ${tienePred})"><i class="fa-solid fa-${tienePred ? 'pen-to-square' : 'floppy-disk'}"></i> ${tienePred ? 'Editar' : 'Guardar'}</button>`;
         } else {
-            html += `<button class="btn btn-secondary" style="background: #0284c7; color: #fff;" onclick="abrirModalVerPronosticosPartidos(${p.id}, '${p.equipo_visitante}', '${p.equipo_local}')"><i class="fa-solid fa-eye"></i> Ver</button>`;
+            if (esLigaFinalizada) {
+                html += `<span class="badge" style="background:var(--accent); color:#000;">Liga Finalizada</span>`;
+            } else {
+                html += `<button class="btn btn-secondary" style="background: #0284c7; color: #fff;" onclick="abrirModalVerPronosticosPartidos(${p.id}, '${p.equipo_visitante}', '${p.equipo_local}')"><i class="fa-solid fa-eye"></i> Ver</button>`;
+            }
             if (p.estado === 'FINALIZADO') {
                 const pts = pred.puntos_obtenidos !== undefined ? pred.puntos_obtenidos : 0;
                 const badgeStyle = pts === 0 ? 'background:rgba(239,68,68,0.2); border:1px solid var(--danger); color:var(--danger);' : 'background:rgba(16,185,129,0.2); border:1px solid var(--success); color:var(--success);';
@@ -797,7 +805,6 @@ async function renderGames() {
         }
 
         if (currentUser.id === 1) {
-            // Botón de Editar Partido
             html += `<button class="btn btn-secondary" style="background:#0284c7; color:#fff;" onclick="abrirModalEditarPartido(${p.id}, '${p.equipo_visitante}', '${p.equipo_local}', '${p.fecha_juego}', '${p.hora}', '${p.estadio}')" title="Editar partido"><i class="fa-solid fa-pen"></i></button>`;
 
             if (p.estado === 'PENDIENTE') {
