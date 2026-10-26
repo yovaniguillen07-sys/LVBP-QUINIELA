@@ -1,5 +1,16 @@
 let currentUser = JSON.parse(localStorage.getItem('penka_current_user')) || null;
 const API_URL = window.location.hostname === 'localhost' ? 'http://localhost:3000/api' : window.location.origin + '/api';
+const _fetch = window.fetch.bind(window);
+window.fetch = (u, o = {}) => {                                  // attach the session token to every API call
+    const t = localStorage.getItem('penka_token');
+    if (t && String(u).startsWith(API_URL)) o = { ...o, headers: { ...(o.headers || {}), Authorization: 'Bearer ' + t } };
+    return _fetch(u, o).then((r) => {                           // expired / missing session -> back to the login screen
+        if (r.status === 401 && currentUser && !String(u).includes('/auth/')) cerrarSesion();
+        return r;
+    });
+};
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const escJs = (s) => esc(String(s ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'"));   // for values inside onclick="f('...')"
 let isRegisterMode = false;
 let gruposListado = [];
 let misLigasIds = new Set();
@@ -93,12 +104,13 @@ async function handleAuth(e) {
         if (response.ok) {
             currentUser = isRegisterMode ? { id: data.userId, username, email } : data.user;
             localStorage.setItem('penka_current_user', JSON.stringify(currentUser));
+            if (data.token) localStorage.setItem('penka_token', data.token);
             checkAuthUI(); cargarGrupos(); verificarEnlaceInvitacion();
         } else alert(data.error || 'Error de autenticación.');
     } catch (err) { alert('No se pudo conectar al servidor.'); }
 }
 
-function cerrarSesion() { localStorage.removeItem('penka_current_user'); currentUser = null; window.location.reload(); }
+function cerrarSesion() { localStorage.removeItem('penka_current_user'); localStorage.removeItem('penka_token'); currentUser = null; window.location.reload(); }
 
 function abrirModalPerfil() {
     if (!currentUser) return;
@@ -168,9 +180,9 @@ async function abrirModalAdminUsuarios() {
 
             tbody.innerHTML += `
                 <tr>
-                    <td><input type="text" id="adm-edit-user-${u.id}" value="${u.username}" style="padding:0.25rem; background:var(--bg-color); border:1px solid var(--border); color:var(--text); border-radius:4px; width:110px;" ${u.id === 1 ? 'disabled' : ''}></td>
-                    <td style="font-size:0.85rem;">${u.email}</td>
-                    <td><input type="text" id="adm-edit-pass-${u.id}" value="${u.password}" style="padding:0.25rem; background:var(--bg-color); border:1px solid var(--border); color:var(--text); border-radius:4px; width:100px;" ${u.id === 1 ? 'disabled' : ''}></td>
+                    <td><input type="text" id="adm-edit-user-${u.id}" value="${esc(u.username)}" style="padding:0.25rem; background:var(--bg-color); border:1px solid var(--border); color:var(--text); border-radius:4px; width:110px;" ${u.id === 1 ? 'disabled' : ''}></td>
+                    <td style="font-size:0.85rem;">${esc(u.email)}</td>
+                    <td><input type="text" id="adm-edit-pass-${u.id}" value="" placeholder="nueva clave" style="padding:0.25rem; background:var(--bg-color); border:1px solid var(--border); color:var(--text); border-radius:4px; width:100px;" ${u.id === 1 ? 'disabled' : ''}></td>
                     <td>${accionHtml}</td>
                 </tr>
             `;
@@ -242,7 +254,7 @@ async function abrirModalAdminPuntos() {
         const miembros = await res.json();
         const sel = document.getElementById('adm-puntos-user');
         sel.innerHTML = '';
-        miembros.forEach(m => { sel.innerHTML += `<option value="${m.usuario_id}">${m.username} (${m.puntos_acumulados} pts)</option>`; });
+        miembros.forEach(m => { sel.innerHTML += `<option value="${m.usuario_id}">${esc(m.username)} (${m.puntos_acumulados} pts)</option>`; });
         openModal('admin-puntos-modal');
     }
 }
@@ -263,7 +275,7 @@ async function cargarCartasColeccionables() {
 
     if (select.options.length === 0 && gruposListado.length > 0) {
         select.innerHTML = '';
-        gruposListado.forEach(g => { select.innerHTML += `<option value="${g.id}">${g.nombre}</option>`; });
+        gruposListado.forEach(g => { select.innerHTML += `<option value="${g.id}">${esc(g.nombre)}</option>`; });
     }
     const grupoId = select.value;
     if (!grupoId) { grid.innerHTML = `<p style="text-align:center; color:var(--text-muted);">Selecciona una liga.</p>`; return; }
@@ -335,7 +347,7 @@ async function abrirModalCrearCarta() {
     const miembros = await res.json();
     const sel = document.getElementById('card-winner-user');
     sel.innerHTML = '';
-    miembros.forEach(m => { sel.innerHTML += `<option value="${m.usuario_id}">${m.username}</option>`; });
+    miembros.forEach(m => { sel.innerHTML += `<option value="${m.usuario_id}">${esc(m.username)}</option>`; });
 }
 
 async function handleCrearCarta(e) {
@@ -385,7 +397,7 @@ async function abrirModalTransferirCarta(cartaId, cartaNombre) {
     const sel = document.getElementById('transfer-user-target');
     sel.innerHTML = '';
     miembros.forEach(m => {
-        if (m.usuario_id !== currentUser.id) sel.innerHTML += `<option value="${m.usuario_id}">${m.username}</option>`;
+        if (m.usuario_id !== currentUser.id) sel.innerHTML += `<option value="${m.usuario_id}">${esc(m.username)}</option>`;
     });
 }
 
@@ -420,7 +432,7 @@ async function loadStandings() {
             tbody.innerHTML = '';
             data.forEach((eq, index) => {
                 const diffC = eq.ca - eq.cp;
-                tbody.innerHTML += `<tr><td style="text-align: left; font-weight: bold;">${index + 1}. ${eq.equipo}</td><td>${eq.jj}</td><td>${eq.jg}</td><td>${eq.jp}</td><td><strong>${Number(eq.ave).toFixed(3).replace('0.', '.')}</strong></td><td>${eq.dif}</td><td>${eq.ca}</td><td>${eq.cp}</td><td>${diffC > 0 ? '+' + diffC : diffC}</td></tr>`;
+                tbody.innerHTML += `<tr><td style="text-align: left; font-weight: bold;">${index + 1}. ${esc(eq.equipo)}</td><td>${eq.jj}</td><td>${eq.jg}</td><td>${eq.jp}</td><td><strong>${Number(eq.ave).toFixed(3).replace('0.', '.')}</strong></td><td>${eq.dif}</td><td>${eq.ca}</td><td>${eq.cp}</td><td>${diffC > 0 ? '+' + diffC : diffC}</td></tr>`;
             });
         }
     } catch (e) { tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: var(--danger);">Error.</td></tr>`; }
@@ -436,7 +448,7 @@ async function abrirModalAdminStandings() {
             const data = await res.json();
             container.innerHTML = '';
             data.forEach(item => {
-                container.innerHTML += `<div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); padding: 0.75rem; border-radius: 6px;"><strong style="color: var(--accent);">${item.equipo}</strong><div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; margin-top:0.5rem;"><div><label style="font-size:0.75rem;">JG</label><input type="number" id="base_jg_${item.equipo}" value="${item.jg_base}" min="0" style="width:100%; padding:0.2rem; background:var(--bg-color); border:1px solid var(--border); color:var(--text); border-radius:4px;"></div><div><label style="font-size:0.75rem;">JP</label><input type="number" id="base_jp_${item.equipo}" value="${item.jp_base}" min="0" style="width:100%; padding:0.2rem; background:var(--bg-color); border:1px solid var(--border); color:var(--text); border-radius:4px;"></div><div><label style="font-size:0.75rem;">CA</label><input type="number" id="base_ca_${item.equipo}" value="${item.ca_base}" min="0" style="width:100%; padding:0.2rem; background:var(--bg-color); border:1px solid var(--border); color:var(--text); border-radius:4px;"></div><div><label style="font-size:0.75rem;">CP</label><input type="number" id="base_cp_${item.equipo}" value="${item.cp_base}" min="0" style="width:100%; padding:0.2rem; background:var(--bg-color); border:1px solid var(--border); color:var(--text); border-radius:4px;"></div></div></div>`;
+                container.innerHTML += `<div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); padding: 0.75rem; border-radius: 6px;"><strong style="color: var(--accent);">${esc(item.equipo)}</strong><div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; margin-top:0.5rem;"><div><label style="font-size:0.75rem;">JG</label><input type="number" id="base_jg_${esc(item.equipo)}" value="${item.jg_base}" min="0" style="width:100%; padding:0.2rem; background:var(--bg-color); border:1px solid var(--border); color:var(--text); border-radius:4px;"></div><div><label style="font-size:0.75rem;">JP</label><input type="number" id="base_jp_${esc(item.equipo)}" value="${item.jp_base}" min="0" style="width:100%; padding:0.2rem; background:var(--bg-color); border:1px solid var(--border); color:var(--text); border-radius:4px;"></div><div><label style="font-size:0.75rem;">CA</label><input type="number" id="base_ca_${esc(item.equipo)}" value="${item.ca_base}" min="0" style="width:100%; padding:0.2rem; background:var(--bg-color); border:1px solid var(--border); color:var(--text); border-radius:4px;"></div><div><label style="font-size:0.75rem;">CP</label><input type="number" id="base_cp_${esc(item.equipo)}" value="${item.cp_base}" min="0" style="width:100%; padding:0.2rem; background:var(--bg-color); border:1px solid var(--border); color:var(--text); border-radius:4px;"></div></div></div>`;
             });
         }
     } catch (e) { container.innerHTML = 'Error.'; }
@@ -456,14 +468,14 @@ async function cargarGrupos() {
         if (resGrupos.ok) {
             gruposListado = await resGrupos.json();
             misLigasIds.clear();
-            for (const g of gruposListado) {
+            await Promise.all(gruposListado.map(async (g) => {      // parallel instead of one-by-one
                 const resMem = await fetch(API_URL + '/grupos/' + g.id + '/miembros');
                 if (resMem.ok) {
                     const miembros = await resMem.json();
                     if (miembros.some(m => m.usuario_id === currentUser.id)) misLigasIds.add(g.id);
                 }
-            }
-            renderGroups(); populateGroupSelects(); renderGames(); loadLeaderboard(); loadHistory(); loadChampionships(); cargarCartasColeccionables();
+            }));
+            renderGroups(); populateGroupSelects(); renderGames(); cargarCartasColeccionables();   // populateGroupSelects already refreshes games/leaderboard/history/titles
         }
     } catch (err) {}
 }
@@ -517,9 +529,9 @@ async function seleccionarLigaYVerPartidos(grupoId) {
         }
     } else {
         if (g.estado === 'EN_PROGRESO' || g.estado === 'FINALIZADA') {
-            alert(`⚠️ La liga "${g.nombre}" ya está ${g.estado === 'EN_PROGRESO' ? 'en curso' : 'finalizada'}. No es posible unirse en este momento.`);
+            alert(`⚠️ La liga "${esc(g.nombre)}" ya está ${g.estado === 'EN_PROGRESO' ? 'en curso' : 'finalizada'}. No es posible unirse en este momento.`);
         } else {
-            alert(`🔒 No estás registrado en la liga "${g.nombre}". Debes unirte primero utilizando el botón "Unirse" o el enlace de invitación.`);
+            alert(`🔒 No estás registrado en la liga "${esc(g.nombre)}". Debes unirte primero utilizando el botón "Unirse" o el enlace de invitación.`);
         }
     }
 }
@@ -542,7 +554,7 @@ function renderGroups() {
 
         let html = `<div class="group-card">
             <div class="group-card-header">
-                <h3 style="cursor: pointer; color: var(--accent); transition: color 0.2s;" onclick="seleccionarLigaYVerPartidos(${g.id})" title="Haz clic para ir a los pronósticos de esta liga">${g.nombre}</h3>
+                <h3 style="cursor: pointer; color: var(--accent); transition: color 0.2s;" onclick="seleccionarLigaYVerPartidos(${g.id})" title="Haz clic para ir a los pronósticos de esta liga">${esc(g.nombre)}</h3>
                 <span class="badge" style="${badgeStyle}">${g.estado}</span>
             </div>
             <p style="color: var(--text-muted); font-size: 0.85rem;">Tipo: <strong>${g.tipo}</strong> | Código: <strong>${g.codigo_acceso}</strong></p>
@@ -551,7 +563,7 @@ function renderGroups() {
         if (yaUnido) html += `<button class="btn" style="background:var(--success); color:#fff; cursor:default;" disabled><i class="fa-solid fa-check"></i> Unido</button>`;
         else if (!enProgreso && !finalizada) html += `<a href="${linkInvitacion}" class="btn btn-primary" style="text-decoration:none;" target="_blank"><i class="fa-solid fa-user-plus"></i> Unirse</a>`;
 
-        html += `<button class="btn btn-secondary" onclick="abrirModalMiembros(${g.id}, '${g.nombre}')"><i class="fa-solid fa-users"></i> Miembros</button>
+        html += `<button class="btn btn-secondary" onclick="abrirModalMiembros(${g.id}, '${escJs(g.nombre)}')"><i class="fa-solid fa-users"></i> Miembros</button>
                 <button class="btn btn-secondary" onclick="openShareModal(${g.id})"><i class="fa-solid fa-share-nodes"></i> QR</button>`;
 
         if (currentUser.id === 1 || currentUser.id === g.creador_id) {
@@ -595,7 +607,7 @@ function populateGroupSelects() {
         if (!select) return;
         const valActual = select.value;
         select.innerHTML = '';
-        gruposListado.forEach(g => { select.innerHTML += `<option value="${g.id}">${g.nombre} (${g.codigo_acceso})</option>`; });
+        gruposListado.forEach(g => { select.innerHTML += `<option value="${g.id}">${esc(g.nombre)} (${g.codigo_acceso})</option>`; });
         if (valActual) select.value = valActual;
     });
     loadLeaderboard(); loadHistory(); loadChampionships();
@@ -645,7 +657,7 @@ async function abrirModalMiembros(grupoId, grupoNombre) {
         const miembros = await res.json();
         const tbody = document.getElementById('members-tbody');
         tbody.innerHTML = '';
-        miembros.forEach(m => { tbody.innerHTML += `<tr><td>${m.username}</td><td>${m.email}</td><td></td></tr>`; });
+        miembros.forEach(m => { tbody.innerHTML += `<tr><td>${esc(m.username)}</td><td>${esc(m.email)}</td><td></td></tr>`; });
     }
 }
 
@@ -781,8 +793,8 @@ async function renderGames() {
         let html = `<div class="game-card">
             <div class="game-info">
                 <div>${estadoBadge} <span style="color: var(--accent); font-weight: bold; font-size: 0.85rem; margin-left: 0.5rem;"><i class="fa-regular fa-calendar"></i> ${p.fecha_juego}</span> <span style="color: var(--text-muted); font-size: 0.85rem; margin-left: 0.5rem;">${p.hora}</span></div>
-                <div class="team-matchup" style="margin-top: 0.5rem;"><span>${p.equipo_visitante}</span> vs <span>${p.equipo_local}</span></div>
-                <div class="stadium"><i class="fa-solid fa-location-dot"></i> ${p.estadio}</div>
+                <div class="team-matchup" style="margin-top: 0.5rem;"><span>${esc(p.equipo_visitante)}</span> vs <span>${esc(p.equipo_local)}</span></div>
+                <div class="stadium"><i class="fa-solid fa-location-dot"></i> ${esc(p.estadio)}</div>
             </div>
             <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
                 <input type="number" class="score-input" id="pred-vis-${p.id}" value="${pred.carreras_vis_pred}" ${p.estado !== 'PENDIENTE' || esLigaFinalizada ? 'disabled' : ''}>
@@ -795,7 +807,7 @@ async function renderGames() {
             if (esLigaFinalizada) {
                 html += `<span class="badge" style="background:var(--accent); color:#000;">Liga Finalizada</span>`;
             } else {
-                html += `<button class="btn btn-secondary" style="background: #0284c7; color: #fff;" onclick="abrirModalVerPronosticosPartidos(${p.id}, '${p.equipo_visitante}', '${p.equipo_local}')"><i class="fa-solid fa-eye"></i> Ver</button>`;
+                html += `<button class="btn btn-secondary" style="background: #0284c7; color: #fff;" onclick="abrirModalVerPronosticosPartidos(${p.id}, '${escJs(p.equipo_visitante)}', '${escJs(p.equipo_local)}')"><i class="fa-solid fa-eye"></i> Ver</button>`;
             }
             if (p.estado === 'FINALIZADO') {
                 const pts = pred.puntos_obtenidos !== undefined ? pred.puntos_obtenidos : 0;
@@ -805,13 +817,13 @@ async function renderGames() {
         }
 
         if (currentUser.id === 1) {
-            html += `<button class="btn btn-secondary" style="background:#0284c7; color:#fff;" onclick="abrirModalEditarPartido(${p.id}, '${p.equipo_visitante}', '${p.equipo_local}', '${p.fecha_juego}', '${p.hora}', '${p.estadio}')" title="Editar partido"><i class="fa-solid fa-pen"></i></button>`;
+            html += `<button class="btn btn-secondary" style="background:#0284c7; color:#fff;" onclick="abrirModalEditarPartido(${p.id}, '${escJs(p.equipo_visitante)}', '${escJs(p.equipo_local)}', '${p.fecha_juego}', '${p.hora}', '${escJs(p.estadio)}')" title="Editar partido"><i class="fa-solid fa-pen"></i></button>`;
 
             if (p.estado === 'PENDIENTE') {
                 html += `<button class="btn btn-secondary" style="background:#eab308; color:#000;" onclick="cambiarEstadoPartido(${p.id}, 'CERRADO')">Cerrar</button>`;
             } else if (p.estado === 'CERRADO') {
                 html += `<button class="btn btn-secondary" style="background:#64748b; color:#fff;" onclick="cambiarEstadoPartido(${p.id}, 'PENDIENTE')" title="Reabrir partido"><i class="fa-solid fa-rotate-left"></i> Reabrir</button>`;
-                html += `<button class="btn btn-secondary" onclick="abrirModalResultado(${p.id}, '${p.equipo_visitante}', '${p.equipo_local}')">Resultado</button>`;
+                html += `<button class="btn btn-secondary" onclick="abrirModalResultado(${p.id}, '${escJs(p.equipo_visitante)}', '${escJs(p.equipo_local)}')">Resultado</button>`;
             } else if (p.estado === 'FINALIZADO') {
                 html += `<button class="btn btn-secondary" style="background:#64748b; color:#fff;" onclick="cambiarEstadoPartido(${p.id}, 'PENDIENTE')" title="Reabrir y corregir resultado"><i class="fa-solid fa-rotate-left"></i> Reabrir</button>`;
             }
@@ -844,7 +856,7 @@ async function abrirModalVerPronosticosPartidos(partidoId, vis, loc) {
         const data = await res.json();
         tbody.innerHTML = '';
         data.forEach(p => {
-            tbody.innerHTML += `<tr><td><strong>${p.username}</strong></td><td><code>${p.carreras_vis_pred !== null ? p.carreras_vis_pred + ' - ' + p.carreras_loc_pred : 'Sin pronóstico'}</code></td><td><strong>+${p.puntos_obtenidos || 0} pts</strong></td></tr>`;
+            tbody.innerHTML += `<tr><td><strong>${esc(p.username)}</strong></td><td><code>${p.carreras_vis_pred !== null ? p.carreras_vis_pred + ' - ' + p.carreras_loc_pred : 'Sin pronóstico'}</code></td><td><strong>+${p.puntos_obtenidos || 0} pts</strong></td></tr>`;
         });
     } catch (e) { tbody.innerHTML = `<tr><td colspan="3">Error.</td></tr>`; }
 }
@@ -885,7 +897,7 @@ async function loadLeaderboard() {
         tbody.innerHTML = '';
         data.forEach((m, idx) => {
             let t = idx === 0 ? ' 🥇' : (idx === 1 ? ' 🥈' : (idx === 2 ? ' 🥉' : ''));
-            tbody.innerHTML += `<tr><td>#${idx + 1}</td><td><strong>${m.username}</strong>${t}</td><td><span class="badge">${m.rol}</span></td><td><strong>${m.puntos_acumulados} pts</strong></td></tr>`;
+            tbody.innerHTML += `<tr><td>#${idx + 1}</td><td><strong>${esc(m.username)}</strong>${t}</td><td><span class="badge">${m.rol}</span></td><td><strong>${m.puntos_acumulados} pts</strong></td></tr>`;
         });
     }
 }
@@ -928,7 +940,7 @@ function aplicarFiltrosHistorial() {
 
     filtrados.forEach(h => {
         let color = h.puntos_obtenidos === 6 ? 'var(--success)' : (h.puntos_obtenidos >= 2 ? 'var(--accent)' : 'var(--danger)');
-        tbody.innerHTML += `<tr><td><strong>${h.username}</strong></td><td>${h.equipo_visitante} vs ${h.equipo_local}</td><td>${h.fecha_juego}</td><td><code>${h.carreras_vis_pred} - ${h.carreras_loc_pred}</code></td><td><code>${h.real_vis} - ${h.real_loc}</code></td><td><span class="badge" style="background:${color}; color:#fff;">+${h.puntos_obtenidos} pts</span></td></tr>`;
+        tbody.innerHTML += `<tr><td><strong>${esc(h.username)}</strong></td><td>${esc(h.equipo_visitante)} vs ${esc(h.equipo_local)}</td><td>${h.fecha_juego}</td><td><code>${h.carreras_vis_pred} - ${h.carreras_loc_pred}</code></td><td><code>${h.real_vis} - ${h.real_loc}</code></td><td><span class="badge" style="background:${color}; color:#fff;">+${h.puntos_obtenidos} pts</span></td></tr>`;
     });
 }
 
@@ -950,7 +962,7 @@ async function loadChampionships() {
         let html = `<div class="table-container"><table class="leaderboard-table"><thead><tr><th>Premio</th><th>Jugador</th><th>Fecha</th></tr></thead><tbody>`;
         camp.forEach(c => {
             let med = c.puesto === 1 ? '🥇 1er Lugar' : (c.puesto === 2 ? '🥈 2do Lugar' : '🥉 3er Lugar');
-            html += `<tr><td><strong>${med}</strong></td><td><strong>${c.username}</strong></td><td>${new Date(c.fecha_finalizacion).toLocaleDateString()}</td></tr>`;
+            html += `<tr><td><strong>${med}</strong></td><td><strong>${esc(c.username)}</strong></td><td>${new Date(c.fecha_finalizacion).toLocaleDateString()}</td></tr>`;
         });
         html += `</tbody></table></div>`;
         container.innerHTML = html;

@@ -50,7 +50,7 @@ self.addEventListener('notificationclick', (event) => {
         clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
             for (let i = 0; i < clientList.length; i++) {
                 let client = clientList[i];
-                if (client.url === event.notification.data.url && 'focus' in client) {
+                if (client.url.replace(/\/$/, '') === event.notification.data.url && 'focus' in client) {
                     return client.focus();
                 }
             }
