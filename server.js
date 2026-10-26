@@ -6,8 +6,48 @@ const webpush = require('web-push');
 
 const app = express();
 app.use(express.json({ limit: '10mb' })); 
-app.use(cors());
-app.use(express.static(path.join(__dirname, '/')));
+app.use(cors({ origin: process.env.CORS_ORIGIN || false }));   // same-origin app: no cross-site access by default
+app.use(express.static(path.join(__dirname, 'public')));       // only public/ is served (never server.js)
+
+// ---------- auth helpers (no extra dependencies) ----------
+const crypto = require('crypto');
+const SECRET = process.env.APP_SECRET || crypto.createHash('sha256').update('quiniela|' + (process.env.DATABASE_URL || 'dev')).digest('hex');
+const hashPw = (pw) => { const salt = crypto.randomBytes(16).toString('hex'); return 's$' + salt + '$' + crypto.scryptSync(String(pw), salt, 32).toString('hex'); };
+const checkPw = (pw, stored) => {
+    if (!stored) return false;
+    if (!stored.startsWith('s$')) return stored === String(pw);            // legacy plain text, migrated on login
+    const [, salt, h] = stored.split('$');
+    return crypto.timingSafeEqual(Buffer.from(h, 'hex'), crypto.scryptSync(String(pw), salt, 32));
+};
+const sign = (id) => { const b = id + '.' + Date.now(); return b + '.' + crypto.createHmac('sha256', SECRET).update(b).digest('hex'); };
+const verify = (t) => {
+    const p = String(t || '').split('.'); if (p.length !== 3) return null;
+    const h = crypto.createHmac('sha256', SECRET).update(p[0] + '.' + p[1]).digest('hex');
+    if (h.length !== p[2].length || !crypto.timingSafeEqual(Buffer.from(h), Buffer.from(p[2]))) return null;
+    return Number(p[0]);
+};
+const tokenOf = (req) => (req.headers && req.headers.authorization || '').replace('Bearer ', '');
+const needUser = (req, res, next) => { const id = verify(tokenOf(req)); if (!id) return res.status(401).json({ error: 'Sesión requerida.' }); req.userId = id; return next(); };
+const needAdmin = (req, res, next) => needUser(req, res, () => req.userId === 1 ? next() : res.status(403).json({ error: 'Solo el administrador.' }));
+const notificados = new Set();   // games already reminded (push)
+
+/** Game start as UTC epoch (Venezuela = UTC-4). Accepts "7:00 PM", "19:00 PM" and "19:00". */
+function inicioJuegoMs(p) {
+    if (!p.fecha_juego || !p.hora) return null;
+    const m = String(p.hora).match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i); if (!m) return null;
+    let h = +m[1]; const mod = (m[3] || '').toUpperCase();
+    if (mod === 'PM' && h < 12) h += 12; if (mod === 'AM' && h === 12) h = 0;
+    const [y, mo, d] = String(p.fecha_juego).slice(0, 10).split('-').map(Number);
+    return Date.UTC(y, mo - 1, d, h + 4, +m[2]);
+}
+async function ensureIndexes() {
+    for (const q of [
+        'CREATE INDEX IF NOT EXISTS idx_pron_partido ON pronosticos(partido_id)',
+        'CREATE INDEX IF NOT EXISTS idx_partidos_estado_fecha ON partidos(estado, fecha_juego)',
+        'DELETE FROM campeonatos a USING campeonatos b WHERE a.id > b.id AND a.grupo_id = b.grupo_id AND a.puesto = b.puesto',
+        'CREATE UNIQUE INDEX IF NOT EXISTS uq_campeonato_puesto ON campeonatos(grupo_id, puesto)',
+    ]) { try { await pool.query(q); } catch (e) { console.log('Índice omitido:', e.message); } }
+}
 
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
@@ -15,11 +55,11 @@ const pool = new Pool({
 });
 
 // Configuración VAPID para Web Push
-const publicVapidKey = process.env.VAPID_PUBLIC_KEY || 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nxh8uQ';
-const privateVapidKey = process.env.VAPID_PRIVATE_KEY || '1234567890abcdef1234567890abcdef1234567890a';
+const publicVapidKey = process.env.VAPID_PUBLIC_KEY;
+const privateVapidKey = process.env.VAPID_PRIVATE_KEY;
 
 try {
-    webpush.setVapidDetails('mailto:soporte@quinielalvbp.com', publicVapidKey, privateVapidKey);
+    if (publicVapidKey && privateVapidKey) webpush.setVapidDetails('mailto:soporte@quinielalvbp.com', publicVapidKey, privateVapidKey);
 } catch (e) {
     console.log('Aviso VAPID:', e.message);
 }
@@ -105,7 +145,7 @@ async function initDB() {
         console.error('Error initDB:', err.message);
     }
 }
-initDB();
+initDB().then(ensureIndexes);
 
 // TAREA AUTOMÁTICA: Cierra partidos cuando faltan 30 minutos o menos (Zona Venezuela UTC-4)
 setInterval(async () => {
@@ -161,7 +201,8 @@ setInterval(async () => {
             const partidoEpoch = Date.UTC(anio, mes - 1, dia, matchHours + 4, matchMinutes, 0);
             const diferenciaMinutos = (partidoEpoch - ahoraEpoch) / (1000 * 60);
 
-            if (diferenciaMinutos >= 115 && diferenciaMinutos <= 125) {
+            if (diferenciaMinutos >= 115 && diferenciaMinutos <= 125 && !notificados.has(p.id)) {
+                notificados.add(p.id);
                 const subsRes = await pool.query("SELECT subscription FROM push_subscriptions");
                 const payload = JSON.stringify({
                     title: `⚾ ¡Recordatorio Quiniela LVBP! 🏟️`,
@@ -202,7 +243,7 @@ app.post('/api/push/subscribe', async (req, res) => {
 });
 
 // RUTAS DE RESPALDO Y RESTAURACIÓN
-app.get('/api/admin/respaldo', async (req, res) => {
+app.get('/api/admin/respaldo', needAdmin, async (req, res) => {
     try {
         const usuarios = await pool.query('SELECT * FROM usuarios');
         const grupos = await pool.query('SELECT * FROM grupos');
@@ -235,7 +276,7 @@ app.get('/api/admin/respaldo', async (req, res) => {
     }
 });
 
-app.post('/api/admin/restaurar', async (req, res) => {
+app.post('/api/admin/restaurar', needAdmin, async (req, res) => {
     const data = req.body;
     if (!data || !data.usuarios || !data.partidos) {
         return res.status(400).json({ error: 'Archivo de respaldo inválido o incompleto.' });
@@ -326,6 +367,8 @@ app.post('/api/admin/restaurar', async (req, res) => {
             }
         }
 
+        for (const t of ['usuarios', 'grupos', 'partidos', 'pronosticos', 'campeonatos', 'cartas_coleccionables', 'push_subscriptions'])
+            await client.query(`SELECT setval(pg_get_serial_sequence('${t}', 'id'), COALESCE((SELECT MAX(id) FROM ${t}), 0) + 1, false)`);
         await client.query('COMMIT');
         res.json({ status: 'ok', message: 'Respaldo restaurado exitosamente.' });
     } catch (err) {
@@ -363,7 +406,7 @@ app.get('/api/cartas/usuario/:usuarioId', async (req, res) => {
     }
 });
 
-app.post('/api/cartas/crear', async (req, res) => {
+app.post('/api/cartas/crear', needAdmin, async (req, res) => {
     const { grupo_id, nombre_carta, ganador_original_id, imagen_url } = req.body;
     try {
         const result = await pool.query(
@@ -387,7 +430,7 @@ app.post('/api/cartas/revelar', async (req, res) => {
     }
 });
 
-app.delete('/api/cartas/:id', async (req, res) => {
+app.delete('/api/cartas/:id', needAdmin, async (req, res) => {
     try {
         await pool.query(`DELETE FROM cartas_coleccionables WHERE id = $1`, [req.params.id]);
         res.json({ status: 'ok' });
@@ -424,7 +467,7 @@ app.get('/api/standings/base', async (req, res) => {
     }
 });
 
-app.post('/api/standings/base', async (req, res) => {
+app.post('/api/standings/base', needAdmin, async (req, res) => {
     const { ajustes } = req.body;
     try {
         for (const item of ajustes) {
@@ -520,8 +563,8 @@ app.get('/api/standings', async (req, res) => {
 app.post('/api/auth/registro', async (req, res) => {
     const { username, email, password } = req.body;
     try {
-        const result = await pool.query('INSERT INTO usuarios (username, email, password) VALUES ($1, $2, $3) RETURNING id', [username, email, password]);
-        res.json({ status: 'ok', userId: result.rows[0].id, username });
+        const result = await pool.query('INSERT INTO usuarios (username, email, password) VALUES ($1, $2, $3) RETURNING id', [username, email, hashPw(password)]);
+        res.json({ status: 'ok', userId: result.rows[0].id, username, token: sign(result.rows[0].id) });
     } catch (err) {
         res.status(400).json({ error: 'El usuario o correo ya existe.' });
     }
@@ -530,10 +573,11 @@ app.post('/api/auth/registro', async (req, res) => {
 app.post('/api/auth/login', async (req, res) => {
     const { username, password } = req.body;
     try {
-        const result = await pool.query('SELECT * FROM usuarios WHERE username = $1 AND password = $2', [username, password]);
-        if (result.rows.length === 0) return res.status(401).json({ error: 'Credenciales inválidas.' });
+        const result = await pool.query('SELECT * FROM usuarios WHERE username = $1', [username]);
         const row = result.rows[0];
-        res.json({ status: 'ok', user: { id: row.id, username: row.username, email: row.email } });
+        if (!row || !checkPw(password, row.password)) return res.status(401).json({ error: 'Credenciales inválidas.' });
+        if (!String(row.password).startsWith('s$')) await pool.query('UPDATE usuarios SET password = $1 WHERE id = $2', [hashPw(password), row.id]);
+        res.json({ status: 'ok', user: { id: row.id, username: row.username, email: row.email }, token: sign(row.id) });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -542,7 +586,8 @@ app.post('/api/auth/login', async (req, res) => {
 app.put('/api/usuarios/:id', async (req, res) => {
     const { username, password } = req.body;
     try {
-        await pool.query('UPDATE usuarios SET username = $1, password = $2 WHERE id = $3', [username, password, req.params.id]);
+        if (password) await pool.query('UPDATE usuarios SET username = $1, password = $2 WHERE id = $3', [username, hashPw(password), req.params.id]);
+        else await pool.query('UPDATE usuarios SET username = $1 WHERE id = $2', [username, req.params.id]);
         const userRes = await pool.query('SELECT id, username, email FROM usuarios WHERE id = $1', [req.params.id]);
         res.json({ status: 'ok', user: userRes.rows[0] });
     } catch (err) {
@@ -550,15 +595,15 @@ app.put('/api/usuarios/:id', async (req, res) => {
     }
 });
 
-app.get('/api/admin/usuarios', async (req, res) => {
+app.get('/api/admin/usuarios', needAdmin, async (req, res) => {
     try {
-        const result = await pool.query('SELECT id, username, email, password, fecha_registro FROM usuarios');
+        const result = await pool.query('SELECT id, username, email, fecha_registro FROM usuarios');
         res.json(result.rows);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
-app.put('/api/admin/usuarios/:id', async (req, res) => {
+app.put('/api/admin/usuarios/:id', needAdmin, async (req, res) => {
     const { username, password } = req.body;
     try {
         await pool.query('UPDATE usuarios SET username = $1, password = $2 WHERE id = $3', [username, password, req.params.id]);
@@ -568,17 +613,17 @@ app.put('/api/admin/usuarios/:id', async (req, res) => {
     }
 });
 
-app.post('/api/admin/usuarios', async (req, res) => {
+app.post('/api/admin/usuarios', needAdmin, async (req, res) => {
     const { username, email, password } = req.body;
     try {
-        const result = await pool.query('INSERT INTO usuarios (username, email, password) VALUES ($1, $2, $3) RETURNING id', [username, email, password]);
+        const result = await pool.query('INSERT INTO usuarios (username, email, password) VALUES ($1, $2, $3) RETURNING id', [username, email, hashPw(password)]);
         res.json({ status: 'ok', userId: result.rows[0].id });
     } catch (err) {
         res.status(400).json({ error: 'No se pudo crear el usuario.' });
     }
 });
 
-app.delete('/api/admin/usuarios/:id', async (req, res) => {
+app.delete('/api/admin/usuarios/:id', needAdmin, async (req, res) => {
     const userId = req.params.id;
     try {
         await pool.query('DELETE FROM push_subscriptions WHERE usuario_id = $1', [userId]);
@@ -595,7 +640,7 @@ app.delete('/api/admin/usuarios/:id', async (req, res) => {
 
 app.get('/api/grupos', async (req, res) => {
     try {
-        const result = await pool.query('SELECT * FROM grupos');
+        const result = await pool.query("SELECT id, nombre, codigo_acceso, tipo, estado, creador_id FROM grupos");
         res.json(result.rows);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -627,7 +672,9 @@ app.post('/api/grupos/estado', async (req, res) => {
             const liderRes = await pool.query(`
                 SELECT usuario_id FROM miembros_grupo 
                 WHERE grupo_id = $1 
-                ORDER BY puntos_acumulados DESC LIMIT 1
+                ORDER BY puntos_acumulados DESC,
+                         (SELECT COUNT(*) FROM pronosticos pr WHERE pr.grupo_id = miembros_grupo.grupo_id AND pr.usuario_id = miembros_grupo.usuario_id AND pr.puntos_obtenidos = 6) DESC,
+                         usuario_id LIMIT 1
             `, [grupo_id]);
             
             if (liderRes.rows.length > 0) {
@@ -671,7 +718,8 @@ app.post('/api/grupos/unirse', async (req, res) => {
 
 app.get('/api/grupos/:id/miembros', async (req, res) => {
     try {
-        const result = await pool.query(`SELECT u.id as usuario_id, u.username, u.email FROM miembros_grupo mg JOIN usuarios u ON mg.usuario_id = u.id WHERE mg.grupo_id = $1`, [req.params.id]);
+        const cols = verify(tokenOf(req)) === 1 ? 'u.id as usuario_id, u.username, u.email' : 'u.id as usuario_id, u.username';
+        const result = await pool.query(`SELECT ${cols} FROM miembros_grupo mg JOIN usuarios u ON mg.usuario_id = u.id WHERE mg.grupo_id = $1`, [req.params.id]);
         res.json(result.rows);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -712,7 +760,7 @@ app.get('/api/partidos', async (req, res) => {
     }
 });
 
-app.post('/api/partidos/crear', async (req, res) => {
+app.post('/api/partidos/crear', needAdmin, async (req, res) => {
     const { equipo_visitante, equipo_local, fecha_juego, hora, estadio } = req.body;
     const externalId = `man_${Date.now()}`;
     try {
@@ -724,7 +772,7 @@ app.post('/api/partidos/crear', async (req, res) => {
 });
 
 // NUEVO: Endpoint para editar partidos existentes
-app.put('/api/partidos/:id', async (req, res) => {
+app.put('/api/partidos/:id', needAdmin, async (req, res) => {
     const { equipo_visitante, equipo_local, fecha_juego, hora, estadio } = req.body;
     try {
         await pool.query(
@@ -737,7 +785,7 @@ app.put('/api/partidos/:id', async (req, res) => {
     }
 });
 
-app.delete('/api/partidos/:id', async (req, res) => {
+app.delete('/api/partidos/:id', needAdmin, async (req, res) => {
     try {
         await pool.query('DELETE FROM pronosticos WHERE partido_id = $1', [req.params.id]);
         await pool.query('DELETE FROM partidos WHERE id = $1', [req.params.id]);
@@ -747,7 +795,7 @@ app.delete('/api/partidos/:id', async (req, res) => {
     }
 });
 
-app.post('/api/partidos/estado', async (req, res) => {
+app.post('/api/partidos/estado', needAdmin, async (req, res) => {
     const { partido_id, estado } = req.body;
     try {
         await pool.query('UPDATE partidos SET estado = $1 WHERE id = $2', [estado, partido_id]);
@@ -784,70 +832,68 @@ app.get('/api/pronosticos/partido/:grupoId/:partidoId', async (req, res) => {
     }
 });
 
-app.post('/api/pronosticos', async (req, res) => {
-    const { grupo_id, usuario_id, partido_id, carreras_vis_pred, carreras_loc_pred } = req.body;
+app.post('/api/pronosticos', needUser, async (req, res) => {
+    const { grupo_id, partido_id } = req.body;
+    const usuario_id = req.userId;                                   // identity comes from the token, never the body
+    const vis = Number(req.body.carreras_vis_pred), loc = Number(req.body.carreras_loc_pred);
+    if (![vis, loc].every(n => Number.isInteger(n) && n >= 0 && n < 100)) return res.status(400).json({ error: 'Carreras inválidas.' });
     try {
-        // VALIDACIÓN: Verificar si la liga está finalizada
         const grupoRes = await pool.query('SELECT estado FROM grupos WHERE id = $1', [grupo_id]);
         if (grupoRes.rows.length > 0 && grupoRes.rows[0].estado === 'FINALIZADA') {
             return res.status(400).json({ error: 'Esta liga ya está finalizada. No se pueden hacer ni modificar pronósticos.' });
         }
-
-        await pool.query(`INSERT INTO pronosticos (grupo_id, usuario_id, partido_id, carreras_vis_pred, carreras_loc_pred) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (grupo_id, usuario_id, partido_id) DO UPDATE SET carreras_vis_pred = EXCLUDED.carreras_vis_pred, carreras_loc_pred = EXCLUDED.carreras_loc_pred`, [grupo_id, usuario_id, partido_id, carreras_vis_pred, carreras_loc_pred]);
+        const mem = await pool.query('SELECT 1 FROM miembros_grupo WHERE grupo_id = $1 AND usuario_id = $2', [grupo_id, usuario_id]);
+        if (mem.rows.length === 0) return res.status(403).json({ error: 'No eres miembro de esta liga.' });
+        const pr = await pool.query('SELECT estado, fecha_juego, hora FROM partidos WHERE id = $1', [partido_id]);
+        if (pr.rows.length === 0) return res.status(404).json({ error: 'Partido no encontrado.' });
+        const inicio = inicioJuegoMs(pr.rows[0]);
+        if (pr.rows[0].estado !== 'PENDIENTE' || (inicio !== null && inicio - Date.now() <= 30 * 60 * 1000)) {
+            return res.status(400).json({ error: 'Los pronósticos de este partido ya están cerrados.' });
+        }
+        await pool.query(`INSERT INTO pronosticos (grupo_id, usuario_id, partido_id, carreras_vis_pred, carreras_loc_pred) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (grupo_id, usuario_id, partido_id) DO UPDATE SET carreras_vis_pred = EXCLUDED.carreras_vis_pred, carreras_loc_pred = EXCLUDED.carreras_loc_pred`, [grupo_id, usuario_id, partido_id, vis, loc]);
         res.json({ status: 'ok' });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-app.post('/api/partidos/resultado', async (req, res) => {
-    const { partido_id, carreras_visitante, carreras_local } = req.body;
+app.post('/api/partidos/resultado', needAdmin, async (req, res) => {
+    const { partido_id } = req.body;
+    const num = (v) => (v === null || v === undefined || v === '') ? NaN : Number(v);
+    const rv = num(req.body.carreras_visitante), rl = num(req.body.carreras_local);
+    if (![rv, rl].every(n => Number.isInteger(n) && n >= 0)) return res.status(400).json({ error: 'Carreras inválidas.' });
     try {
-        await pool.query('UPDATE partidos SET estado = $1, carreras_visitante = $2, carreras_local = $3 WHERE id = $4', ['FINALIZADO', carreras_visitante, carreras_local, partido_id]);
-        
+        await pool.query('UPDATE partidos SET estado = $1, carreras_visitante = $2, carreras_local = $3 WHERE id = $4', ['FINALIZADO', rv, rl, partido_id]);
         const pronosticosRes = await pool.query('SELECT * FROM pronosticos WHERE partido_id = $1', [partido_id]);
-
-        for (let p of pronosticosRes.rows) {
+        const ganador = (a, b) => a > b ? 'VIS' : (a < b ? 'LOC' : 'EMP');
+        const ids = [], pts = [];
+        for (const p of pronosticosRes.rows) {
+            const v = Number(p.carreras_vis_pred), l = Number(p.carreras_loc_pred);
             let puntos = 0;
-            const visP = p.carreras_vis_pred;
-            const locP = p.carreras_loc_pred;
-
-            if (visP === carreras_visitante && locP === carreras_local) {
-                puntos = 6;
-            } else {
-                const ganadorPred = visP > locP ? 'VIS' : (visP < locP ? 'LOC' : 'EMP');
-                const ganadorReal = carreras_visitante > carreras_local ? 'VIS' : (carreras_visitante < carreras_local ? 'LOC' : 'EMP');
-                if (ganadorPred === ganadorReal) {
-                    puntos = 3;
-                } else if ((visP + locP) === (carreras_visitante + carreras_local)) {
-                    puntos = 2;
-                }
-            }
-            await pool.query('UPDATE pronosticos SET puntos_obtenidos = $1 WHERE id = $2', [puntos, p.id]);
+            if (v === rv && l === rl) puntos = 6;
+            else if (ganador(v, l) === ganador(rv, rl)) puntos = 3;
+            else if (v + l === rv + rl) puntos = 2;
+            ids.push(p.id); pts.push(puntos);
         }
-
-        const totalesRes = await pool.query(`
-            SELECT pr.grupo_id, pr.usuario_id, SUM(pr.puntos_obtenidos) as total 
-            FROM pronosticos pr
-            JOIN grupos g ON pr.grupo_id = g.id
-            WHERE pr.partido_id = $1 AND g.estado != 'FINALIZADA'
-            GROUP BY pr.grupo_id, pr.usuario_id
-        `, [partido_id]);
-
-        for (let r of totalesRes.rows) {
-            await pool.query(
-                'UPDATE miembros_grupo SET puntos_acumulados = $1 WHERE grupo_id = $2 AND usuario_id = $3', 
-                [r.total, r.grupo_id, r.usuario_id]
-            );
+        if (ids.length) {
+            await pool.query('UPDATE pronosticos p SET puntos_obtenidos = v.pts FROM unnest($1::int[], $2::int[]) AS v(id, pts) WHERE p.id = v.id', [ids, pts]);
+            // running total of ALL finished games for every (league, user) touched by this game
+            await pool.query(`
+                UPDATE miembros_grupo mg SET puntos_acumulados = t.total
+                FROM (SELECT pr.grupo_id, pr.usuario_id, SUM(pr.puntos_obtenidos) AS total
+                      FROM pronosticos pr
+                      WHERE (pr.grupo_id, pr.usuario_id) IN (SELECT grupo_id, usuario_id FROM pronosticos WHERE partido_id = $1)
+                      GROUP BY pr.grupo_id, pr.usuario_id) t
+                JOIN grupos g ON g.id = t.grupo_id
+                WHERE mg.grupo_id = t.grupo_id AND mg.usuario_id = t.usuario_id AND g.estado != 'FINALIZADA'`, [partido_id]);
         }
-
         res.json({ status: 'ok' });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-app.post('/api/admin/puntos', async (req, res) => {
+app.post('/api/admin/puntos', needAdmin, async (req, res) => {
     const { grupo_id, usuario_id, nuevos_puntos } = req.body;
     try {
         await pool.query('INSERT INTO miembros_grupo (grupo_id, usuario_id, puntos_acumulados) VALUES ($1, $2, $3) ON CONFLICT (grupo_id, usuario_id) DO UPDATE SET puntos_acumulados = $3', [grupo_id, usuario_id, nuevos_puntos]);
